@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1552d6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>ControlPuerta · Registro de vehículos</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="toasts" id="toasts"></div>
+
+<!-- ============ ENCABEZADO ============ -->
+<header class="appbar" id="appbar" hidden>
+  <div class="ab-brand">
+    <div class="ab-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18"/><path d="M9 21v-6h6v6"/><path d="M3 12h18"/></svg>
+    </div>
+    <div>
+      <b>ControlPuerta</b>
+      <small id="roleLabel">—</small>
+    </div>
+  </div>
+  <div class="ab-right">
+    <span class="conn" id="connBadge" title="Estado de conexión"></span>
+    <button class="ab-exit" id="btnExit" title="Cambiar de rol">Salir</button>
+  </div>
+</header>
+
+<!-- ============ PANTALLA DE ROL ============ -->
+<section id="gate" class="gate">
+  <div class="gate-inner">
+    <div class="gate-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18"/><path d="M9 21v-6h6v6"/><path d="M3 12h18"/></svg>
+    </div>
+    <h1>ControlPuerta</h1>
+    <p>Registro digital de vehículos en planta</p>
+    <div class="role-cards">
+      <button class="role-card conductor" onclick="App.enterRole('conductor')">
+        <div class="rc-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="15" height="10" rx="2"/><path d="M16 10h4l3 3v4h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
+        </div>
+        <b>Soy Conductor</b>
+        <span>Aviso mi llegada y sigo mi estado</span>
+      </button>
+      <button class="role-card fabrica" onclick="App.askPin()">
+        <div class="rc-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20V9l5 3V9l5 3V6l6 4v10"/></svg>
+        </div>
+        <b>Soy Fábrica / Portería</b>
+        <span>Autorizo, cierro y veo el tablero</span>
+        <em class="lock">🔒 requiere PIN</em>
+      </button>
+    </div>
+    <p class="gate-foot" id="gateMode">—</p>
+  </div>
+</section>
+
+<!-- ============ VISTA CONDUCTOR ============ -->
+<main id="viewConductor" class="view" hidden></main>
+
+<!-- ============ VISTA FÁBRICA ============ -->
+<main id="viewFabrica" class="view" hidden>
+  <nav class="ftabs" id="ftabs">
+    <button class="ftab on" data-t="puerta" onclick="App.setTab('puerta',this)">En puerta <span class="cnt" id="tabPuerta">0</span></button>
+    <button class="ftab" data-t="planta" onclick="App.setTab('planta',this)">En planta <span class="cnt" id="tabPlanta">0</span></button>
+    <button class="ftab" data-t="cerrado" onclick="App.setTab('cerrado',this)">Cerrados <span class="cnt" id="tabCerrado">0</span></button>
+    <button class="ftab" data-t="dashboard" onclick="App.setTab('dashboard',this)">📊 Tablero</button>
+  </nav>
+  <div id="fabBody" class="fab-body"></div>
+</main>
+
+<!-- ============ MODAL PIN ============ -->
+<div class="overlay" id="pinOverlay">
+  <div class="modal sm">
+    <div class="modal-head"><div class="ic blue">🔒</div><div><h3>Acceso Fábrica</h3><small>Ingresa el PIN</small></div></div>
+    <div class="modal-body">
+      <input id="pinInput" class="pin-input" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off">
+      <p class="pin-err" id="pinErr" hidden>PIN incorrecto</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-cancel" onclick="App.closePin()">Cancelar</button>
+      <button class="btn-lg btn-primary" onclick="App.checkPin()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL SALIDA ============ -->
+<div class="overlay" id="outOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="ic green">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      </div>
+      <div><h3>Registrar salida</h3><small id="outSub">Cierre del ingreso</small></div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>¿Con qué salió el vehículo?</label>
+        <select id="outTipo">
+          <option>Cargado · producto terminado</option>
+          <option>Cargado · materia prima</option>
+          <option>Descargado / vacío</option>
+          <option>Sin novedad</option>
+          <option>Otro</option>
+        </select></div>
+      <div class="field"><label>Detalle de carga / novedad</label>
+        <textarea id="outDetalle" rows="3" placeholder="Ej: 24 estibas producto terminado, remisión #4521"></textarea></div>
+      <div class="field"><label># Remisión / precinto (opcional)</label>
+        <input id="outDoc" placeholder="Ej: REM-4521 · Precinto 00987"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-cancel" onclick="App.closeOut()">Cancelar</button>
+      <button class="btn-lg btn-green" onclick="App.confirmOut()">✔ Confirmar salida</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

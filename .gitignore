@@ -1,0 +1,16 @@
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Editores
+.vscode/
+.idea/
+
+# Dependencias (no se usan, pero por si acaso)
+node_modules/
+
+# Config local con llaves (opcional):
+# Si NO quieres subir tus llaves de Supabase a GitHub,
+# descomenta la línea de abajo y usa config.example.js como plantilla.
+# config.js
