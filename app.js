@@ -410,9 +410,17 @@ const App = (function () {
     if (String(pin) === String(C.ADMIN_PIN)) return err("Ese PIN es el del administrador, usa otro.");
     const dup = usuarios.find(u => String(u.pin) === pin && u.id !== editUserId);
     if (dup) return err("Ese PIN ya lo usa " + dup.nombre + ".");
-    if (editUserId) { await Users.update(editUserId, { nombre, cargo, pin, activo }); toast("green", "Usuario actualizado", nombre); }
-    else { await Users.insert({ nombre, cargo, pin, activo, created_at: new Date().toISOString() }); toast("green", "Usuario creado", nombre + " ya puede entrar con su PIN."); }
-    closeUser(); await refreshUsers();
+    const saveBtn = document.querySelector("#userOverlay .btn-primary");
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Guardando…"; }
+    try {
+      if (editUserId) { await Users.update(editUserId, { nombre, cargo, pin, activo }); toast("green", "Usuario actualizado", nombre); }
+      else { await Users.insert({ nombre, cargo, pin, activo, created_at: new Date().toISOString() }); toast("green", "Usuario creado", nombre + " ya puede entrar con su PIN."); }
+      closeUser(); await refreshUsers();
+    } catch (e) {
+      err("No se pudo guardar: " + (e && e.message ? e.message : e) + ". Revisa tu conexión o que la tabla 'usuarios' exista en Supabase.");
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Guardar"; }
+    }
   }
   async function toggleUser(id) { const u = usuarios.find(x => x.id === id); if (!u) return; await Users.update(id, { activo: !(u.activo !== false) }); await refreshUsers(); }
   async function deleteUser(id) { const u = usuarios.find(x => x.id === id); if (!u) return; if (!confirm("¿Eliminar a " + u.nombre + "?")) return; await Users.remove(id); await refreshUsers(); toast("amber", "Usuario eliminado", u.nombre); }

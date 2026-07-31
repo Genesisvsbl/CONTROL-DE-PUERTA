@@ -22,8 +22,9 @@
   let _client = null;
   async function client() {
     if (_client) return _client;
-    const mod = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-    _client = mod.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
+    if (!window.supabase || !window.supabase.createClient)
+      throw new Error("No se pudo cargar la librería de Supabase (revisa que exista supabase.js).");
+    _client = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
     return _client;
   }
 
