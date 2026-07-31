@@ -70,6 +70,8 @@
       </button>
     </div>
 
+    <button id="btnInstall" class="btn-install" hidden onclick="App.installApp()">📲 Instalar app en el celular</button>
+    <p id="iosHint" class="ios-hint" hidden>Para instalar en iPhone: toca <b>Compartir</b> ⬆️ y luego <b>“Agregar a inicio”</b>.</p>
     <p class="gate-foot" id="gateMode">—</p>
   </div>
 </section>
@@ -163,5 +165,10 @@
 <script src="supabase.js"></script>
 <script src="store.js"></script>
 <script src="app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  }
+</script>
 </body>
 </html>

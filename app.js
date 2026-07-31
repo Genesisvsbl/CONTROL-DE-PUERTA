@@ -54,6 +54,32 @@ const App = (function () {
     else if (savedRole === "fabrica" && savedUser) { currentUser = JSON.parse(savedUser); enterRole("fabrica", true); }
     else if (savedRole === "admin") openAdmin(true);
     setInterval(() => { if (role === "conductor" && cStep === "inicio") renderConductor(); }, 30000);
+    setupInstall();
+  }
+
+  /* ===================== INSTALAR (PWA) ===================== */
+  let deferredPrompt = null;
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault(); deferredPrompt = e;
+    const b = el("btnInstall"); if (b) b.hidden = false;
+    const h = el("iosHint"); if (h) h.hidden = true;
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    const b = el("btnInstall"); if (b) b.hidden = true;
+    toast("green", "App instalada", "Ábrela desde tu pantalla de inicio.");
+  });
+  async function installApp() {
+    if (!deferredPrompt) { toast("blue", "Instalación", "Usa el menú del navegador → “Instalar app” / “Agregar a inicio”."); return; }
+    deferredPrompt.prompt();
+    try { await deferredPrompt.userChoice; } catch (e) {}
+    deferredPrompt = null;
+    const b = el("btnInstall"); if (b) b.hidden = true;
+  }
+  function setupInstall() {
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+    if (isIOS && !standalone) { const h = el("iosHint"); if (h) h.hidden = false; }
   }
   async function refresh() { data = await Store.list(); updateConn(); if (role === "fabrica") renderFabrica(); if (role === "conductor") renderConductor(); }
   async function refreshUsers() { usuarios = await Users.list(); if (role === "admin") renderAdmin(); }
@@ -438,7 +464,7 @@ const App = (function () {
     boot, enterRole, exitRole, askPin, closePin, checkPin,
     markArrival, submitConductor, newConductor,
     setTab, autorizar, rechazar, openOut, closeOut, confirmOut, exportCSV, exportXLSX,
-    openUser, closeUser, saveUser, toggleUser, deleteUser
+    openUser, closeUser, saveUser, toggleUser, deleteUser, installApp
   };
 })();
 
