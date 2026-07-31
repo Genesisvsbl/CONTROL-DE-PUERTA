@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1552d6">
+<meta name="theme-color" content="#0b2f7a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
@@ -28,35 +28,48 @@
   </div>
   <div class="ab-right">
     <span class="conn" id="connBadge" title="Estado de conexión"></span>
-    <button class="ab-exit" id="btnExit" title="Cambiar de rol">Salir</button>
+    <button class="ab-exit" id="btnExit" title="Salir">Salir</button>
   </div>
 </header>
 
-<!-- ============ PANTALLA DE ROL ============ -->
+<!-- ============ PANTALLA DE ENTRADA (FACHADA) ============ -->
 <section id="gate" class="gate">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="grid-bg"></div>
   <div class="gate-inner">
     <div class="gate-logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18"/><path d="M9 21v-6h6v6"/><path d="M3 12h18"/></svg>
     </div>
-    <h1>ControlPuerta</h1>
-    <p>Registro digital de vehículos en planta</p>
+    <div class="gate-kick">SISTEMA DE ACCESO A PLANTA</div>
+    <h1 class="gate-title">Control<span>Puerta</span></h1>
+    <p class="gate-sub">Registro digital de vehículos en tiempo real</p>
+
     <div class="role-cards">
-      <button class="role-card conductor" onclick="App.enterRole('conductor')">
-        <div class="rc-ic">
+      <button class="role-card" onclick="App.enterRole('conductor')">
+        <div class="rc-ic ic-cond">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="15" height="10" rx="2"/><path d="M16 10h4l3 3v4h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
         </div>
-        <b>Soy Conductor</b>
-        <span>Aviso mi llegada y sigo mi estado</span>
+        <div class="rc-txt"><b>Conductor</b><span>Aviso mi llegada y sigo mi estado</span></div>
+        <div class="rc-arrow">→</div>
       </button>
-      <button class="role-card fabrica" onclick="App.askPin()">
-        <div class="rc-ic">
+
+      <button class="role-card" onclick="App.askPin('fabrica')">
+        <div class="rc-ic ic-fab">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20V9l5 3V9l5 3V6l6 4v10"/></svg>
         </div>
-        <b>Soy Fábrica / Portería</b>
-        <span>Autorizo, cierro y veo el tablero</span>
-        <em class="lock">🔒 requiere PIN</em>
+        <div class="rc-txt"><b>Portería / Fábrica</b><span>Autorizo, cierro y veo el tablero</span></div>
+        <div class="rc-lock">🔒</div>
+      </button>
+
+      <button class="role-card admin" onclick="App.askPin('admin')">
+        <div class="rc-ic ic-adm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"/><circle cx="12" cy="11" r="2.5"/><path d="M12 13.5V16"/></svg>
+        </div>
+        <div class="rc-txt"><b>Administrador</b><span>Gestiono usuarios y accesos</span></div>
+        <div class="rc-lock">👑</div>
       </button>
     </div>
+
     <p class="gate-foot" id="gateMode">—</p>
   </div>
 </section>
@@ -75,12 +88,17 @@
   <div id="fabBody" class="fab-body"></div>
 </main>
 
+<!-- ============ VISTA ADMINISTRADOR ============ -->
+<main id="viewAdmin" class="view" hidden>
+  <div id="adminBody" class="admin-body"></div>
+</main>
+
 <!-- ============ MODAL PIN ============ -->
 <div class="overlay" id="pinOverlay">
   <div class="modal sm">
-    <div class="modal-head"><div class="ic blue">🔒</div><div><h3>Acceso Fábrica</h3><small>Ingresa el PIN</small></div></div>
+    <div class="modal-head"><div class="ic blue" id="pinIcon">🔒</div><div><h3 id="pinTitle">Acceso</h3><small id="pinSubt">Ingresa tu PIN</small></div></div>
     <div class="modal-body">
-      <input id="pinInput" class="pin-input" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off">
+      <input id="pinInput" class="pin-input" inputmode="numeric" maxlength="10" placeholder="••••" autocomplete="off">
       <p class="pin-err" id="pinErr" hidden>PIN incorrecto</p>
     </div>
     <div class="modal-foot">
@@ -116,6 +134,27 @@
     <div class="modal-foot">
       <button class="btn-lg btn-cancel" onclick="App.closeOut()">Cancelar</button>
       <button class="btn-lg btn-green" onclick="App.confirmOut()">✔ Confirmar salida</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL USUARIO (admin) ============ -->
+<div class="overlay" id="userOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="ic blue">👤</div>
+      <div><h3 id="userTitle">Nuevo usuario</h3><small>Portería / Fábrica</small></div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Nombre</label><input id="uNombre" placeholder="Ej: María Ríos" autocomplete="off"></div>
+      <div class="field"><label>Cargo <small>(opcional)</small></label><input id="uCargo" placeholder="Ej: Portería turno mañana" autocomplete="off"></div>
+      <div class="field"><label>PIN de acceso</label><input id="uPin" inputmode="numeric" maxlength="10" placeholder="Ej: 4521" autocomplete="off"></div>
+      <label class="switch"><input type="checkbox" id="uActivo" checked><span>Usuario activo</span></label>
+      <p class="pin-err" id="uErr" hidden></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-cancel" onclick="App.closeUser()">Cancelar</button>
+      <button class="btn-lg btn-primary" onclick="App.saveUser()">Guardar</button>
     </div>
   </div>
 </div>
