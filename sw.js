@@ -1,5 +1,5 @@
 /* ControlPuerta · Service Worker (permite instalar y usar offline el "cascarón") */
-const CACHE = "controlpuerta-v3";
+const CACHE = "controlpuerta-v4";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./config.js",
   "./supabase.js", "./store.js", "./app.js",
