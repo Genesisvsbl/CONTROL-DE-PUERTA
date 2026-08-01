@@ -78,4 +78,12 @@ create policy "us_insert" on public.usuarios for insert with check (true);
 create policy "us_update" on public.usuarios for update using (true) with check (true);
 create policy "us_delete" on public.usuarios for delete using (true);
 
+-- ------------------------------------------------------------
+-- Permisos de tabla para el rol público (anon) y autenticado
+-- (necesario para que la app pueda leer/escribir con la llave publishable)
+-- ------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.registros to anon, authenticated;
+grant select, insert, update, delete on public.usuarios  to anon, authenticated;
+
 -- Listo.
