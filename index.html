@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>ControlPuerta · Registro de vehículos</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -71,7 +71,6 @@
     </div>
 
     <button id="btnInstall" class="btn-install" hidden onclick="App.installApp()">📲 Instalar app en el celular</button>
-    <p id="iosHint" class="ios-hint" hidden>Para instalar en iPhone: toca <b>Compartir</b> ⬆️ y luego <b>“Agregar a inicio”</b>.</p>
     <p class="gate-foot" id="gateMode">—</p>
   </div>
 </section>
@@ -94,6 +93,33 @@
 <main id="viewAdmin" class="view" hidden>
   <div id="adminBody" class="admin-body"></div>
 </main>
+
+<!-- ============ MODAL INSTALAR EN IPHONE ============ -->
+<div class="overlay" id="iosOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="ic blue">📲</div>
+      <div><h3>Instalar en iPhone</h3><small>Con Safari, en 3 pasos</small></div>
+    </div>
+    <div class="modal-body">
+      <div class="ios-steps">
+        <div class="ios-step"><span class="n">1</span>
+          <div>Toca el botón <b>Compartir</b>
+            <svg class="shareic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/></svg>
+            (abajo, al centro de Safari).</div></div>
+        <div class="ios-step"><span class="n">2</span>
+          <div>Desliza y elige <b>“Agregar a pantalla de inicio”</b>
+            <svg class="plusic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg></div></div>
+        <div class="ios-step"><span class="n">3</span>
+          <div>Toca <b>“Agregar”</b> arriba a la derecha. ¡Listo, queda el ícono!</div></div>
+      </div>
+      <p class="ios-note">⚠️ Debe ser <b>Safari</b>. Si abriste el enlace dentro de WhatsApp, Instagram o el correo, primero toca <b>“Abrir en Safari”</b>.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-primary" onclick="App.closeIos()">Entendido</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============ MODAL PIN ============ -->
 <div class="overlay" id="pinOverlay">

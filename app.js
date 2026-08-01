@@ -59,10 +59,10 @@ const App = (function () {
 
   /* ===================== INSTALAR (PWA) ===================== */
   let deferredPrompt = null;
+  let iosMode = false;
   window.addEventListener("beforeinstallprompt", e => {
     e.preventDefault(); deferredPrompt = e;
-    const b = el("btnInstall"); if (b) b.hidden = false;
-    const h = el("iosHint"); if (h) h.hidden = true;
+    const b = el("btnInstall"); if (b) { b.hidden = false; b.textContent = "📲 Instalar app en el celular"; }
   });
   window.addEventListener("appinstalled", () => {
     deferredPrompt = null;
@@ -70,16 +70,24 @@ const App = (function () {
     toast("green", "App instalada", "Ábrela desde tu pantalla de inicio.");
   });
   async function installApp() {
-    if (!deferredPrompt) { toast("blue", "Instalación", "Usa el menú del navegador → “Instalar app” / “Agregar a inicio”."); return; }
-    deferredPrompt.prompt();
-    try { await deferredPrompt.userChoice; } catch (e) {}
-    deferredPrompt = null;
-    const b = el("btnInstall"); if (b) b.hidden = true;
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      try { await deferredPrompt.userChoice; } catch (e) {}
+      deferredPrompt = null;
+      const b = el("btnInstall"); if (b) b.hidden = true;
+      return;
+    }
+    if (iosMode) { el("iosOverlay").classList.add("show"); return; }
+    toast("blue", "Instalación", "Abre el menú del navegador y elige “Instalar app” o “Agregar a inicio”.");
   }
+  function closeIos() { el("iosOverlay").classList.remove("show"); }
   function setupInstall() {
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPad iPadOS
     const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-    if (isIOS && !standalone) { const h = el("iosHint"); if (h) h.hidden = false; }
+    iosMode = isIOS;
+    if (standalone) return; // ya está instalada
+    if (isIOS) { const b = el("btnInstall"); if (b) { b.hidden = false; b.textContent = "📲 Cómo instalar en iPhone"; } }
   }
   async function refresh() { data = await Store.list(); updateConn(); if (role === "fabrica") renderFabrica(); if (role === "conductor") renderConductor(); }
   async function refreshUsers() { usuarios = await Users.list(); if (role === "admin") renderAdmin(); }
@@ -464,7 +472,7 @@ const App = (function () {
     boot, enterRole, exitRole, askPin, closePin, checkPin,
     markArrival, submitConductor, newConductor,
     setTab, autorizar, rechazar, openOut, closeOut, confirmOut, exportCSV, exportXLSX,
-    openUser, closeUser, saveUser, toggleUser, deleteUser, installApp
+    openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos
   };
 })();
 

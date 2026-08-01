@@ -281,3 +281,12 @@ input,select,textarea,button{font-family:inherit}
 .btn-install:hover{transform:translateY(-1px)}
 .btn-install:active{transform:scale(.98)}
 .ios-hint{margin-top:16px;font-size:12.5px;color:#cfe;line-height:1.5;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:11px 13px}
+
+/* ===== INSTRUCTIVO iPHONE ===== */
+.ios-steps{display:grid;gap:14px}
+.ios-step{display:flex;gap:12px;align-items:flex-start;font-size:14px;color:#2c3543;line-height:1.5}
+.ios-step .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--azul);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center}
+.ios-step b{color:var(--texto)}
+.shareic{width:20px;height:20px;color:var(--azul);vertical-align:-5px;margin:0 2px}
+.plusic{width:19px;height:19px;color:var(--verde);vertical-align:-4px;margin-left:2px}
+.ios-note{margin:16px 0 0;font-size:12.5px;color:var(--gris);background:var(--ambar-cla);border:1px solid #f2d29a;border-radius:11px;padding:10px 12px;line-height:1.5}
