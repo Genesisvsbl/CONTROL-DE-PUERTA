@@ -17,6 +17,8 @@ const App = (function () {
   let pinMode = "fabrica";   // 'fabrica' | 'admin'
   let currentUser = null;    // usuario de portería logueado
   let editUserId = null;
+  let adminTab = "usuarios"; // 'usuarios' | 'indicadores'
+  let indicFilter = "todo";  // 'hoy' | '7d' | '30d' | 'todo'
 
   const $ = s => document.querySelector(s);
   const el = id => document.getElementById(id);
@@ -273,7 +275,6 @@ const App = (function () {
     const puerta = data.filter(r => r.estado === "puerta"), planta = data.filter(r => r.estado === "planta"), cerrado = data.filter(r => r.estado === "cerrado");
     el("tabPuerta").textContent = puerta.length; el("tabPlanta").textContent = planta.length; el("tabCerrado").textContent = cerrado.length;
     const body = el("fabBody");
-    if (tab === "dashboard") return renderDashboard(body, cerrado, puerta, planta);
     const list = tab === "puerta" ? puerta : tab === "planta" ? planta : cerrado;
     if (!list.length) {
       body.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="15" height="10" rx="2"/><path d="M16 10h4l3 3v4h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
@@ -325,39 +326,61 @@ const App = (function () {
     const v = data.find(x => x.id === id); toast("green", "✅ Salida registrada", (v ? v.placa : "Vehículo") + " cerrado correctamente.");
   }
 
-  /* ===================== DASHBOARD ===================== */
-  function renderDashboard(body, cerrado, puerta, planta) {
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const cerradosHoy = cerrado.filter(r => new Date(r.t_salida) >= hoy);
-    const esperas = cerrado.map(r => tiempos(r).espera).filter(v => v != null);
-    const plantas = cerrado.map(r => tiempos(r).planta).filter(v => v != null);
-    const ciclos = cerrado.map(r => tiempos(r).ciclo).filter(v => v != null);
+  /* ===================== INDICADORES (solo admin/premium) ===================== */
+  function rangeStart() {
+    if (indicFilter === "hoy") { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+    if (indicFilter === "7d") return new Date(Date.now() - 7 * 86400000);
+    if (indicFilter === "30d") return new Date(Date.now() - 30 * 86400000);
+    return null;
+  }
+  function inRange(r) { const s = rangeStart(); if (!s) return true; const t = r.t_salida || r.t_puerta; return t && new Date(t) >= s; }
+
+  function renderIndicadores(box) {
+    const puerta = data.filter(r => r.estado === "puerta");
+    const planta = data.filter(r => r.estado === "planta");
+    const cerrados = data.filter(r => r.estado === "cerrado" && inRange(r));
+    const esperas = cerrados.map(r => tiempos(r).espera).filter(v => v != null);
+    const plantas = cerrados.map(r => tiempos(r).planta).filter(v => v != null);
+    const ciclos = cerrados.map(r => tiempos(r).ciclo).filter(v => v != null);
     const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : null;
     const max = a => a.length ? Math.max(...a) : null;
-    const demorasCount = cerrado.filter(r => { const e = tiempos(r).espera; return e != null && e >= C.DEMORA_PUERTA_MIN; }).length + puerta.filter(r => diffMin(r.t_puerta, new Date().toISOString()) >= C.DEMORA_PUERTA_MIN).length;
-    body.innerHTML = `
+    const demoras = cerrados.filter(r => { const e = tiempos(r).espera; return e != null && e >= C.DEMORA_PUERTA_MIN; }).length;
+    const pctDem = cerrados.length ? Math.round(demoras * 100 / cerrados.length) : 0;
+    let rapido = null, lento = null;
+    cerrados.forEach(r => { const c = tiempos(r).ciclo; if (c == null) return; if (!rapido || c < tiempos(rapido).ciclo) rapido = r; if (!lento || c > tiempos(lento).ciclo) lento = r; });
+    const chips = [["hoy", "Hoy"], ["7d", "7 días"], ["30d", "30 días"], ["todo", "Todo"]]
+      .map(([k, l]) => `<button class="chip ${indicFilter === k ? 'on' : ''}" onclick="App.setIndicFilter('${k}')">${l}</button>`).join("");
+    box.innerHTML = `
       <div class="dash">
-        <div class="dash-head"><div><h3>Tablero de tiempos</h3><small>Indicadores del proceso en planta</small></div>
-          <div class="exp-btns"><button class="btn-exp" onclick="App.exportCSV()">⬇️ CSV</button><button class="btn-exp xls" onclick="App.exportXLSX()">⬇️ Excel</button></div></div>
+        <div class="dash-head">
+          <div><h3>Indicadores de tiempos</h3><small>Cuánto demoran los vehículos en cada etapa</small></div>
+          <div class="exp-btns"><button class="btn-exp" onclick="App.exportCSV()">⬇️ CSV</button><button class="btn-exp xls" onclick="App.exportXLSX()">⬇️ Excel</button></div>
+        </div>
+        <div class="indic-filter">${chips}</div>
         <div class="dkpis">
-          <div class="dkpi"><span class="l">En puerta ahora</span><b class="ambar">${puerta.length}</b></div>
+          <div class="dkpi"><span class="l">Vehículos (periodo)</span><b class="azul">${cerrados.length}</b></div>
           <div class="dkpi"><span class="l">En planta ahora</span><b class="azul">${planta.length}</b></div>
-          <div class="dkpi"><span class="l">Cerrados hoy</span><b class="verde">${cerradosHoy.length}</b></div>
-          <div class="dkpi"><span class="l">Con demora (>${C.DEMORA_PUERTA_MIN}m)</span><b class="rojo">${demorasCount}</b></div>
+          <div class="dkpi"><span class="l">En puerta ahora</span><b class="ambar">${puerta.length}</b></div>
+          <div class="dkpi"><span class="l">% con demora</span><b class="rojo">${pctDem}%</b></div>
         </div>
         <div class="dcards">
           <div class="dcard"><span class="l">⏳ Espera en puerta (prom.)</span><b>${durTxt(avg(esperas))}</b><small>máx ${durTxt(max(esperas))}</small></div>
           <div class="dcard"><span class="l">🏭 Tiempo en planta (prom.)</span><b>${durTxt(avg(plantas))}</b><small>máx ${durTxt(max(plantas))}</small></div>
           <div class="dcard"><span class="l">🔄 Ciclo total (prom.)</span><b>${durTxt(avg(ciclos))}</b><small>máx ${durTxt(max(ciclos))}</small></div>
         </div>
+        ${(rapido || lento) ? `<div class="hl-cards">
+          ${rapido ? `<div class="hl fast"><span>⚡ Más rápido</span><b>${esc(rapido.placa)}</b><small>${durTxt(tiempos(rapido).ciclo)}</small></div>` : ""}
+          ${lento ? `<div class="hl slow"><span>🐢 Más lento</span><b>${esc(lento.placa)}</b><small>${durTxt(tiempos(lento).ciclo)}</small></div>` : ""}
+        </div>` : ""}
         <div class="chart-box"><canvas id="chart" height="150"></canvas></div>
         <div class="tbl-wrap"><table class="tbl">
           <thead><tr><th>Placa</th><th>Conductor</th><th>Llegada</th><th>Ingreso</th><th>Salida</th><th>Espera</th><th>En planta</th><th>Ciclo</th><th>Salió con</th></tr></thead>
-          <tbody>${cerrado.length ? cerrado.map(rowHTML).join("") : '<tr><td colspan="9" class="tc-empty">Aún no hay registros cerrados.</td></tr>'}</tbody>
+          <tbody>${cerrados.length ? cerrados.map(rowHTML).join("") : '<tr><td colspan="9" class="tc-empty">No hay registros cerrados en este periodo.</td></tr>'}</tbody>
         </table></div>
       </div>`;
-    drawChart(cerrado.slice(0, 10).reverse());
+    drawChart(cerrados.slice(0, 12).reverse());
   }
+  function setIndicFilter(f) { indicFilter = f; renderAdmin(); }
   function rowHTML(r) { const t = tiempos(r); const dem = t.espera != null && t.espera >= C.DEMORA_PUERTA_MIN;
     return `<tr><td><b>${esc(r.placa)}</b></td><td>${esc(r.nombre)}</td><td>${fmtHM(D(r.t_puerta))}</td><td>${fmtHM(D(r.t_ingreso))}</td><td>${fmtHM(D(r.t_salida))}</td><td class="${dem ? 'dem' : ''}">${durTxt(t.espera)}</td><td>${durTxt(t.planta)}</td><td>${durTxt(t.ciclo)}</td><td>${esc(r.salida_tipo || "—")}</td></tr>`; }
   function drawChart(rows) {
@@ -372,7 +395,7 @@ const App = (function () {
     if (window.Chart) draw(); else { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"; s.onload = draw; document.head.appendChild(s); }
   }
   function rowsForExport() {
-    return data.filter(r => r.estado !== "rechazado").map(r => { const t = tiempos(r);
+    return data.filter(r => r.estado !== "rechazado" && inRange(r)).map(r => { const t = tiempos(r);
       return { Folio: r.folio || "", Placa: r.placa, Conductor: r.nombre, Cedula: r.cedula, Vehiculo: r.tipo || "", Motivo: r.motivo || "", Estado: r.estado,
         Llegada: fmtFull(D(r.t_puerta)), Ingreso: fmtFull(D(r.t_ingreso)), Salida: fmtFull(D(r.t_salida)),
         Espera_min: t.espera ?? "", En_planta_min: t.planta ?? "", Ciclo_min: t.ciclo ?? "",
@@ -391,26 +414,37 @@ const App = (function () {
   /* ===================== ADMINISTRADOR ===================== */
   function renderAdmin() {
     const body = el("adminBody");
-    const activos = usuarios.filter(u => u.activo !== false).length;
     body.innerHTML = `
       <div class="admin">
         <div class="admin-hero">
           <div class="ah-ic">👑</div>
-          <div><h2>Panel de Administrador</h2><small>Gestiona los usuarios que pueden entrar como Portería</small></div>
+          <div><h2>Panel de Administrador</h2><small>Usuarios e indicadores de la operación</small></div>
         </div>
-        <div class="admin-kpis">
-          <div class="akpi"><span>Usuarios</span><b>${usuarios.length}</b></div>
-          <div class="akpi"><span>Activos</span><b class="verde">${activos}</b></div>
-          <div class="akpi"><span>Inactivos</span><b class="gris">${usuarios.length - activos}</b></div>
+        <div class="admin-tabs">
+          <button class="atab ${adminTab === 'usuarios' ? 'on' : ''}" onclick="App.setAdminTab('usuarios')">👥 Usuarios</button>
+          <button class="atab ${adminTab === 'indicadores' ? 'on' : ''}" onclick="App.setAdminTab('indicadores')">📊 Indicadores</button>
         </div>
-        <div class="admin-actions">
-          <h3>Usuarios de portería</h3>
-          <button class="btn-add" onclick="App.openUser()">＋ Nuevo usuario</button>
-        </div>
-        ${usuarios.length ? `<div class="ulist">${usuarios.map(userRow).join("")}</div>` : `
-          <div class="empty small"><p>Aún no has creado usuarios.<br>Crea el primero con <b>＋ Nuevo usuario</b>. Cada uno entrará a Portería con su propio PIN.</p></div>`}
-        <p class="admin-note">👑 Los usuarios tipo <b>Administrador (premium)</b> entran al panel con su propio PIN. El PIN maestro está en <b>config.js</b> (ADMIN_PIN).</p>
+        <div id="adminContent"></div>
       </div>`;
+    if (adminTab === "indicadores") renderIndicadores(el("adminContent"));
+    else renderAdminUsuarios(el("adminContent"));
+  }
+  function setAdminTab(t) { adminTab = t; renderAdmin(); }
+  function renderAdminUsuarios(box) {
+    const activos = usuarios.filter(u => u.activo !== false).length;
+    box.innerHTML = `
+      <div class="admin-kpis">
+        <div class="akpi"><span>Usuarios</span><b>${usuarios.length}</b></div>
+        <div class="akpi"><span>Activos</span><b class="verde">${activos}</b></div>
+        <div class="akpi"><span>Inactivos</span><b class="gris">${usuarios.length - activos}</b></div>
+      </div>
+      <div class="admin-actions">
+        <h3>Usuarios</h3>
+        <button class="btn-add" onclick="App.openUser()">＋ Nuevo usuario</button>
+      </div>
+      ${usuarios.length ? `<div class="ulist">${usuarios.map(userRow).join("")}</div>` : `
+        <div class="empty small"><p>Aún no has creado usuarios.<br>Crea el primero con <b>＋ Nuevo usuario</b>. Cada uno entra con su propio PIN.</p></div>`}
+      <p class="admin-note">👑 Los usuarios tipo <b>Administrador (premium)</b> entran a este panel con su propio PIN. El PIN maestro está en <b>config.js</b> (ADMIN_PIN).</p>`;
   }
   function userRow(u) {
     const act = u.activo !== false;
@@ -475,7 +509,8 @@ const App = (function () {
     boot, enterRole, exitRole, askPin, closePin, checkPin,
     markArrival, submitConductor, newConductor,
     setTab, autorizar, rechazar, openOut, closeOut, confirmOut, exportCSV, exportXLSX,
-    openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos
+    openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos,
+    setAdminTab, setIndicFilter
   };
 })();
 
