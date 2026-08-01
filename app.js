@@ -147,11 +147,12 @@ const App = (function () {
       if (au) { currentUser = { id: au.id, nombre: au.nombre }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); openAdmin(); return; }
       el("pinErr").hidden = false; return;
     }
-    // fábrica: valida contra usuarios activos, o PIN de respaldo
+    // fábrica: usuarios activos (incluye premium), PIN de respaldo, o el PIN maestro de admin (acceso total)
     const u = usuarios.find(x => String(x.pin) === v && x.activo !== false);
-    if (u) { currentUser = { id: u.id, nombre: u.nombre }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); enterRole("fabrica"); }
-    else if (v === String(C.PIN_FABRICA)) { currentUser = { nombre: "Portería" }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); enterRole("fabrica"); }
-    else { el("pinErr").hidden = false; }
+    if (u) { currentUser = { id: u.id, nombre: u.nombre + (u.rol === "admin" ? " · Admin" : "") }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); enterRole("fabrica"); return; }
+    if (v === String(C.PIN_FABRICA)) { currentUser = { nombre: "Portería" }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); enterRole("fabrica"); return; }
+    if (v === String(C.ADMIN_PIN)) { currentUser = { nombre: "Administrador" }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); enterRole("fabrica"); return; }
+    el("pinErr").hidden = false;
   }
 
   /* ===================== CONDUCTOR ===================== */
