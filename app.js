@@ -52,7 +52,7 @@ const App = (function () {
     const savedUser = sessionStorage.getItem("cp_user");
     if (savedRole === "conductor") enterRole("conductor", true);
     else if (savedRole === "fabrica" && savedUser) { currentUser = JSON.parse(savedUser); enterRole("fabrica", true); }
-    else if (savedRole === "admin") openAdmin(true);
+    else if (savedRole === "admin") { if (savedUser) { try { currentUser = JSON.parse(savedUser); } catch (e) {} } openAdmin(true); }
     setInterval(() => { if (role === "conductor" && cStep === "inicio") renderConductor(); }, 30000);
     setupInstall();
   }
@@ -116,7 +116,7 @@ const App = (function () {
   function openAdmin(silent) {
     role = "admin";
     sessionStorage.setItem("cp_role", "admin");
-    el("roleLabel").textContent = "Administrador";
+    el("roleLabel").textContent = (currentUser && currentUser.nombre) ? currentUser.nombre + " · Admin" : "Administrador";
     showView("admin");
     updateConn();
     renderAdmin();
@@ -140,9 +140,10 @@ const App = (function () {
   function checkPin() {
     const v = el("pinInput").value.trim();
     if (pinMode === "admin") {
-      if (v === String(C.ADMIN_PIN)) { closePin(); openAdmin(); }
-      else { el("pinErr").hidden = false; }
-      return;
+      if (v === String(C.ADMIN_PIN)) { currentUser = { nombre: "Administrador" }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); openAdmin(); return; }
+      const au = usuarios.find(x => String(x.pin) === v && x.activo !== false && x.rol === "admin");
+      if (au) { currentUser = { id: au.id, nombre: au.nombre }; sessionStorage.setItem("cp_user", JSON.stringify(currentUser)); closePin(); openAdmin(); return; }
+      el("pinErr").hidden = false; return;
     }
     // fábrica: valida contra usuarios activos, o PIN de respaldo
     const u = usuarios.find(x => String(x.pin) === v && x.activo !== false);
@@ -408,14 +409,14 @@ const App = (function () {
         </div>
         ${usuarios.length ? `<div class="ulist">${usuarios.map(userRow).join("")}</div>` : `
           <div class="empty small"><p>Aún no has creado usuarios.<br>Crea el primero con <b>＋ Nuevo usuario</b>. Cada uno entrará a Portería con su propio PIN.</p></div>`}
-        <p class="admin-note">🔒 El PIN de administrador se cambia en el archivo <b>config.js</b> (ADMIN_PIN).</p>
+        <p class="admin-note">👑 Los usuarios tipo <b>Administrador (premium)</b> entran al panel con su propio PIN. El PIN maestro está en <b>config.js</b> (ADMIN_PIN).</p>
       </div>`;
   }
   function userRow(u) {
     const act = u.activo !== false;
     return `<div class="ucard ${act ? '' : 'off'}">
       <div class="uav">${esc((u.nombre || "?").trim().charAt(0).toUpperCase())}</div>
-      <div class="uinfo"><b>${esc(u.nombre)}</b><span>${esc(u.cargo || "Portería")} · PIN ${esc(u.pin)}</span></div>
+      <div class="uinfo"><b>${esc(u.nombre)}</b><span>${u.rol === "admin" ? "👑 " : ""}${esc(u.cargo || (u.rol === "admin" ? "Administrador" : "Portería"))} · PIN ${esc(u.pin)}</span></div>
       <div class="ubadge ${act ? 'on' : ''}">${act ? "Activo" : "Inactivo"}</div>
       <div class="uacts">
         <button title="${act ? 'Desactivar' : 'Activar'}" onclick="App.toggleUser('${u.id}')">${act ? '⏸' : '▶'}</button>
@@ -431,6 +432,7 @@ const App = (function () {
     el("uCargo").value = u ? (u.cargo || "") : "";
     el("uPin").value = u ? u.pin : "";
     el("uActivo").checked = u ? (u.activo !== false) : true;
+    if (el("uRol")) el("uRol").value = (u && u.rol === "admin") ? "admin" : "porteria";
     el("uErr").hidden = true;
     el("userOverlay").classList.add("show");
     setTimeout(() => el("uNombre").focus(), 100);
@@ -438,6 +440,7 @@ const App = (function () {
   function closeUser() { el("userOverlay").classList.remove("show"); editUserId = null; }
   async function saveUser() {
     const nombre = el("uNombre").value.trim(), cargo = el("uCargo").value.trim(), pin = el("uPin").value.trim(), activo = el("uActivo").checked;
+    const rol = el("uRol") ? el("uRol").value : "porteria";
     const err = m => { const e = el("uErr"); e.textContent = m; e.hidden = false; };
     if (!nombre) return err("Escribe el nombre.");
     if (!/^\d{3,10}$/.test(pin)) return err("El PIN debe tener de 3 a 10 dígitos.");
@@ -447,8 +450,8 @@ const App = (function () {
     const saveBtn = document.querySelector("#userOverlay .btn-primary");
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Guardando…"; }
     try {
-      if (editUserId) { await Users.update(editUserId, { nombre, cargo, pin, activo }); toast("green", "Usuario actualizado", nombre); }
-      else { await Users.insert({ nombre, cargo, pin, activo, created_at: new Date().toISOString() }); toast("green", "Usuario creado", nombre + " ya puede entrar con su PIN."); }
+      if (editUserId) { await Users.update(editUserId, { nombre, cargo, pin, activo, rol }); toast("green", "Usuario actualizado", nombre); }
+      else { await Users.insert({ nombre, cargo, pin, activo, rol, created_at: new Date().toISOString() }); toast("green", "Usuario creado", nombre + (rol === "admin" ? " (Admin) " : " ") + "ya puede entrar con su PIN."); }
       closeUser(); await refreshUsers();
     } catch (e) {
       err("No se pudo guardar: " + (e && e.message ? e.message : e) + ". Revisa tu conexión o que la tabla 'usuarios' exista en Supabase.");

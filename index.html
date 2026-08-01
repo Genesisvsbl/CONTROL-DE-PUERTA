@@ -177,6 +177,11 @@
       <div class="field"><label>Nombre</label><input id="uNombre" placeholder="Ej: María Ríos" autocomplete="off"></div>
       <div class="field"><label>Cargo <small>(opcional)</small></label><input id="uCargo" placeholder="Ej: Portería turno mañana" autocomplete="off"></div>
       <div class="field"><label>PIN de acceso</label><input id="uPin" inputmode="numeric" maxlength="10" placeholder="Ej: 4521" autocomplete="off"></div>
+      <div class="field"><label>Tipo de acceso (rol)</label>
+        <select id="uRol">
+          <option value="porteria">Portería / Fábrica</option>
+          <option value="admin">👑 Administrador (premium)</option>
+        </select></div>
       <label class="switch"><input type="checkbox" id="uActivo" checked><span>Usuario activo</span></label>
       <p class="pin-err" id="uErr" hidden></p>
     </div>

@@ -41,10 +41,13 @@ create table if not exists public.usuarios (
   nombre     text not null,
   pin        text not null,
   cargo      text,
+  rol        text default 'porteria',   -- 'porteria' | 'admin' (premium)
   activo     boolean default true,
   created_at timestamptz default now()
 );
 create index if not exists usuarios_pin_idx on public.usuarios (pin);
+-- por si la tabla ya existía sin la columna rol:
+alter table public.usuarios add column if not exists rol text default 'porteria';
 
 -- ------------------------------------------------------------
 -- Tiempo real (idempotente: no falla si ya estaba agregada)
