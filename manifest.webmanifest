@@ -2,7 +2,7 @@
   "name": "ControlPuerta · Registro de vehículos",
   "short_name": "ControlPuerta",
   "description": "Registro digital de vehículos en planta: conductor y portería en tiempo real.",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
