@@ -186,7 +186,7 @@ const App = (function () {
           ${gps}
           <div class="field"><label>Nombre completo</label><input id="fNombre" placeholder="Ej: Juan Carlos Pérez" autocomplete="off"></div>
           <div class="field"><label>Cédula</label><input id="fCedula" inputmode="numeric" placeholder="Ej: 1010234567" autocomplete="off"></div>
-          <div class="field"><label>Placa del vehículo</label><input id="fPlaca" placeholder="Ej: SXK-482" style="text-transform:uppercase" maxlength="8" autocomplete="off"></div>
+          <div class="field"><label>Placa del vehículo</label><input id="fPlaca" placeholder="Ej: SXK482" style="text-transform:uppercase;letter-spacing:2px;font-weight:700" maxlength="6" autocomplete="off" oninput="this.value=this.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase()"><div style="font-size:11px;color:var(--gris);margin-top:4px">Se pone en mayúscula sola · 6 caracteres (ej: SXK482)</div></div>
           <div class="field"><label>Empresa / motivo <small>(opcional)</small></label><input id="fMotivo" placeholder="Ej: Transportes ABC · Cargue" autocomplete="off"></div>
           <div class="field"><label>Tipo de vehículo</label>
             <select id="fTipo"><option>Tractocamión</option><option>Turbo / NHR</option><option>Camión sencillo</option><option>Furgón</option><option>Camioneta</option><option>Otro</option></select></div>
@@ -252,6 +252,7 @@ const App = (function () {
     let bad = false;
     [["fNombre", nombre], ["fCedula", cedula], ["fPlaca", placa]].forEach(([id, val]) => { el(id).style.borderColor = val ? "" : "var(--rojo)"; if (!val) bad = true; });
     if (bad) { toast("blue", "Faltan datos", "Completa nombre, cédula y placa."); return; }
+    if (!/^[A-Z0-9]{6}$/.test(placa)) { el("fPlaca").style.borderColor = "var(--rojo)"; toast("blue", "Placa inválida", "La placa debe tener 6 caracteres (ej: SXK482)."); return; }
     btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Enviando…';
     const loc = cGPS || { lat: PLANTA.lat + (Math.random() - .5) * .004, lng: PLANTA.lng + (Math.random() - .5) * .004, acc: 25, sim: true };
     const rec = {
