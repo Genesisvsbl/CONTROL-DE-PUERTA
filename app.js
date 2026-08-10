@@ -334,7 +334,7 @@ const App = (function () {
     if (v.estado === "cerrado") {
       const cats = catsOf(v);
       const body = cats.length
-        ? cats.map(c => `<div class="catline"><b>${esc(c.cat)}</b>${c.items && c.items.length ? " · " + esc(c.items.join(", ")) : ""}${c.obs ? `<span class="obs">📝 ${esc(c.obs)}</span>` : ""}</div>`).join("")
+        ? cats.map(c => `<div class="catline"><b>${esc(c.cat)}</b>${c.items && c.items.length ? " · " + esc(c.items.map(itemLabel).join(", ")) : ""}${c.obs ? `<span class="obs">📝 ${esc(c.obs)}</span>` : ""}</div>`).join("")
         : esc(v.salida_tipo || "—");
       cargo = `<div class="cargo-box"><div class="l">Salió con</div>${body}${v.salida_doc ? `<div class="docline">📄 ${esc(v.salida_doc)}</div>` : ""}</div>`;
     }
@@ -370,10 +370,14 @@ const App = (function () {
     el("outOverlay").classList.add("show");
   }
   function catCard(cat) {
-    const subs = cat.subs ? `<div class="subchips">${cat.subs.map(s => `<label class="subchip"><input type="checkbox" value="${esc(s)}"><span>${esc(s)}</span></label>`).join("")}</div>` : "";
+    const subs = cat.subs ? `<div class="subitems">${cat.subs.map(s => `
+      <div class="subitem">
+        <label class="subck"><input type="checkbox" value="${esc(s)}" onchange="App.toggleSub(this)"><span>${esc(s)}</span></label>
+        <input class="subcant" type="text" inputmode="numeric" placeholder="Cantidad" hidden>
+      </div>`).join("")}</div>` : "";
     return `<div class="catrow" data-cat="${cat.key}">
       <label class="catchk"><input type="checkbox" onchange="App.toggleCat(this)"><b>${esc(cat.nombre)}</b></label>
-      <div class="catdetail" hidden>${subs}<input class="catobs" placeholder="Observación de ${esc(cat.nombre)}" autocomplete="off"></div>
+      <div class="catdetail" hidden>${subs}<input class="catobs" placeholder="Observación de ${esc(cat.nombre)} (opcional)" autocomplete="off"></div>
     </div>`;
   }
   function toggleCat(input) {
@@ -381,6 +385,14 @@ const App = (function () {
     row.classList.toggle("on", input.checked);
     row.querySelector(".catdetail").hidden = !input.checked;
   }
+  function toggleSub(input) {
+    const it = input.closest(".subitem");
+    const cant = it.querySelector(".subcant");
+    it.classList.toggle("on", input.checked);
+    cant.hidden = !input.checked;
+    if (input.checked) setTimeout(() => cant.focus(), 30);
+  }
+  function itemLabel(it) { if (it == null) return ""; if (typeof it === "string") return it; return it.sub + (it.cant ? " ×" + it.cant : ""); }
   function closeOut() { el("outOverlay").classList.remove("show"); outTargetId = null; }
   async function confirmOut() {
     if (!outTargetId) return closeOut();
@@ -389,12 +401,14 @@ const App = (function () {
       const chk = row.querySelector(".catchk input");
       if (!chk || !chk.checked) return;
       const def = CATS.find(c => c.key === row.getAttribute("data-cat"));
-      const items = [...row.querySelectorAll(".subchips input:checked")].map(i => i.value);
+      const items = [...row.querySelectorAll(".subitem")]
+        .filter(si => si.querySelector(".subck input") && si.querySelector(".subck input").checked)
+        .map(si => ({ sub: si.querySelector(".subck input").value, cant: (si.querySelector(".subcant").value || "").trim() }));
       const obs = (row.querySelector(".catobs") && row.querySelector(".catobs").value || "").trim();
       cats.push({ cat: def ? def.nombre : row.getAttribute("data-cat"), items, obs });
     });
     const tipo = cats.length ? cats.map(c => c.cat).join(", ") : "Sin novedad";
-    const detalle = cats.map(c => c.cat + (c.items.length ? " (" + c.items.join(", ") + ")" : "") + (c.obs ? " — " + c.obs : "")).join(" | ");
+    const detalle = cats.map(c => c.cat + (c.items.length ? " (" + c.items.map(itemLabel).join(", ") + ")" : "") + (c.obs ? " — " + c.obs : "")).join(" | ");
     const doc = (el("outDoc") && el("outDoc").value || "").trim();
     await Store.update(outTargetId, { estado: "cerrado", t_salida: new Date().toISOString(), salida_tipo: tipo, salida_detalle: detalle, salida_doc: doc, salida_categorias: cats });
     const id = outTargetId; closeOut(); await refresh();
@@ -481,7 +495,7 @@ const App = (function () {
         t.espera ?? "", t.planta ?? "", t.ciclo ?? "", categoria, detalle, obs, r.salida_doc || ""
       ];
       const cats = catsOf(r);
-      if (cats.length) cats.forEach(c => out.push(mk(c.cat, (c.items || []).join(", "), c.obs || "")));
+      if (cats.length) cats.forEach(c => out.push(mk(c.cat, (c.items || []).map(itemLabel).join(", "), c.obs || "")));
       else out.push(mk(r.estado === "cerrado" ? (r.salida_tipo || "Sin novedad") : "", "", ""));
     });
     return out;
@@ -687,7 +701,7 @@ const App = (function () {
     markArrival, submitConductor, newConductor,
     setTab, autorizar, rechazar, openOut, closeOut, confirmOut, exportCSV, exportXLSX,
     openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos,
-    setAdminTab, setIndicFilter, addTipo, toggleCat
+    setAdminTab, setIndicFilter, addTipo, toggleCat, toggleSub
   };
 })();
 

@@ -358,3 +358,12 @@ input,select,textarea,button{font-family:inherit}
 .ab-refresh:active{transform:rotate(180deg)}
 .update-bar{position:sticky;top:0;z-index:40;background:linear-gradient(135deg,var(--azul),var(--azul-osc));color:#fff;padding:10px 14px;text-align:center;font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 4px 14px rgba(16,38,76,.18)}
 .update-bar button{border:none;background:#fff;color:var(--azul);font-weight:800;padding:6px 15px;border-radius:8px;cursor:pointer;font-size:13px}
+
+/* ===== Subtipos con cantidad por cada selección ===== */
+.subitems{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:flex-start}
+.subitem{display:flex;flex-direction:column;gap:5px}
+.subck{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--linea);border-radius:20px;padding:6px 11px;font-size:12.5px;cursor:pointer;background:#fff;user-select:none;white-space:nowrap}
+.subitem.on .subck{border-color:var(--verde);background:var(--verde-cla);color:var(--verde);font-weight:600}
+.subck input{width:15px;height:15px;accent-color:var(--verde)}
+.subcant{width:100%;min-width:110px;border:1.5px solid var(--verde);border-radius:9px;padding:8px 10px;font-size:13px;font-weight:600}
+.subcant:focus{outline:none;box-shadow:0 0 0 3px rgba(18,161,80,.16)}
