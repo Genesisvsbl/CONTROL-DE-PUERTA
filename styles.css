@@ -347,3 +347,8 @@ input,select,textarea,button{font-family:inherit}
 .catline b{color:var(--texto)}
 .catline .obs{display:block;font-size:12px;color:var(--gris);margin-top:1px}
 .docline{margin-top:8px;font-size:12px;color:var(--gris)}
+
+/* ===== Modal con scroll cuando el contenido es largo ===== */
+.modal{max-height:92vh;display:flex;flex-direction:column}
+.modal-head,.modal-foot{flex:none}
+.modal-body{flex:1 1 auto;overflow-y:auto;min-height:0}

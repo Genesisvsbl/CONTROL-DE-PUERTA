@@ -6,11 +6,13 @@ const App = (function () {
   const C = window.CONFIG;
   const PLANTA = C.PLANTA;
   // Categorías con las que puede salir un vehículo (varias a la vez, cada una con observación)
+  const VIDRIO_SUBS = ["Ambar 250", "Ambar 330", "Ambar 1.000", "Flim 250", "Flim 330", "Flim 1.000", "Trophic 330", "GREEN 175", "GREEN 320"];
   const CATS = [
-    { key: "lavado", nombre: "Lavado" },
-    { key: "casco", nombre: "Casco de vidrio", subs: ["Ambar 250", "Ambar 330", "Ambar 1.000", "Flim 250", "Flim 330", "Flim 1.000", "Trophic 330", "GREEN 175", "GREEN 320"] },
+    { key: "producto_terminado", nombre: "Producto terminado", subs: ["PT PET 330", "PT PET 200", "PT PET 1.500", "PT PET 1.000"] },
+    { key: "lavado", nombre: "Lavado", subs: VIDRIO_SUBS },
+    { key: "casco", nombre: "Casco de vidrio", subs: VIDRIO_SUBS },
     { key: "caja_mala", nombre: "Caja mala" },
-    { key: "caja_vacia", nombre: "Caja vacía", subs: ["PT PET 330", "PT PET 200", "PT PET 1.500", "PT PET 1.000"] }
+    { key: "caja_vacia", nombre: "Caja vacía" }
   ];
   let role = null;            // 'conductor' | 'fabrica' | 'admin'
   let data = [];             // registros
