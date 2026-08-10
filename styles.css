@@ -367,3 +367,7 @@ input,select,textarea,button{font-family:inherit}
 .subck input{width:15px;height:15px;accent-color:var(--verde)}
 .subcant{width:100%;min-width:110px;border:1.5px solid var(--verde);border-radius:9px;padding:8px 10px;font-size:13px;font-weight:600}
 .subcant:focus{outline:none;box-shadow:0 0 0 3px rgba(18,161,80,.16)}
+
+/* ===== Texto en mayúscula al escribir ===== */
+#fNombre,#fMotivo,.catobs,#outDoc,#uNombre,#uCargo{text-transform:uppercase}
+#fNombre::placeholder,#fMotivo::placeholder,.catobs::placeholder,#outDoc::placeholder,#uNombre::placeholder,#uCargo::placeholder{text-transform:none}

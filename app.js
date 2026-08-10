@@ -216,7 +216,7 @@ const App = (function () {
           <div class="field"><label>Nombre completo</label><input id="fNombre" placeholder="Ej: Juan Carlos Pérez" autocomplete="off"></div>
           <div class="field"><label>Cédula</label><input id="fCedula" inputmode="numeric" placeholder="Ej: 1010234567" autocomplete="off"></div>
           <div class="field"><label>Placa del vehículo</label><input id="fPlaca" placeholder="Ej: SXK482" style="text-transform:uppercase;letter-spacing:2px;font-weight:700" maxlength="6" autocomplete="off" oninput="this.value=this.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase()"><div style="font-size:11px;color:var(--gris);margin-top:4px">Se pone en mayúscula sola · 6 caracteres (ej: SXK482)</div></div>
-          <div class="field"><label>Empresa / motivo <small>(opcional)</small></label><input id="fMotivo" placeholder="Ej: Transportes ABC · Cargue" autocomplete="off"></div>
+          <div class="field"><label>Empresa / motivo</label><input id="fMotivo" placeholder="Ej: Transportes ABC · Cargue" autocomplete="off"></div>
           <div class="field"><label>Tipo de vehículo</label>
             <div style="display:flex;gap:8px">
               <select id="fTipo" style="flex:1">${getTipos().map(t => `<option>${esc(t)}</option>`).join("")}</select>
@@ -279,11 +279,11 @@ const App = (function () {
     else { cGPS = null; go(); }
   }
   async function submitConductor(btn) {
-    const nombre = el("fNombre").value.trim(), cedula = el("fCedula").value.trim(), placa = el("fPlaca").value.trim().toUpperCase();
-    const motivo = el("fMotivo").value.trim(), tipo = el("fTipo").value;
+    const nombre = el("fNombre").value.trim().toUpperCase(), cedula = el("fCedula").value.trim(), placa = el("fPlaca").value.trim().toUpperCase();
+    const motivo = el("fMotivo").value.trim().toUpperCase(), tipo = el("fTipo").value;
     let bad = false;
-    [["fNombre", nombre], ["fCedula", cedula], ["fPlaca", placa]].forEach(([id, val]) => { el(id).style.borderColor = val ? "" : "var(--rojo)"; if (!val) bad = true; });
-    if (bad) { toast("blue", "Faltan datos", "Completa nombre, cédula y placa."); return; }
+    [["fNombre", nombre], ["fCedula", cedula], ["fPlaca", placa], ["fMotivo", motivo]].forEach(([id, val]) => { el(id).style.borderColor = val ? "" : "var(--rojo)"; if (!val) bad = true; });
+    if (bad) { toast("blue", "Faltan datos", "Todos los campos son obligatorios."); return; }
     if (!/^[A-Z0-9]{6}$/.test(placa)) { el("fPlaca").style.borderColor = "var(--rojo)"; toast("blue", "Placa inválida", "La placa debe tener 6 caracteres (ej: SXK482)."); return; }
     btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Enviando…';
     const loc = cGPS || { lat: PLANTA.lat + (Math.random() - .5) * .004, lng: PLANTA.lng + (Math.random() - .5) * .004, acc: 25, sim: true };
@@ -404,12 +404,20 @@ const App = (function () {
       const items = [...row.querySelectorAll(".subitem")]
         .filter(si => si.querySelector(".subck input") && si.querySelector(".subck input").checked)
         .map(si => ({ sub: si.querySelector(".subck input").value, cant: (si.querySelector(".subcant").value || "").trim() }));
-      const obs = (row.querySelector(".catobs") && row.querySelector(".catobs").value || "").trim();
-      cats.push({ cat: def ? def.nombre : row.getAttribute("data-cat"), items, obs });
+      const obs = (row.querySelector(".catobs") && row.querySelector(".catobs").value || "").trim().toUpperCase();
+      const items2 = items.map(it => ({ sub: it.sub, cant: (it.cant || "").toUpperCase() }));
+      cats.push({ cat: def ? def.nombre : row.getAttribute("data-cat"), items: items2, obs });
     });
-    const tipo = cats.length ? cats.map(c => c.cat).join(", ") : "Sin novedad";
+    // Todos los campos obligatorios: al menos una categoría, y cada subtipo marcado con su cantidad
+    if (!cats.length) { toast("blue", "Falta información", "Selecciona al menos una categoría."); return; }
+    for (const c of cats) {
+      const def = CATS.find(d => d.nombre === c.cat);
+      if (def && def.subs && c.items.length === 0) { toast("blue", "Falta información", "Marca al menos un subtipo en " + c.cat + "."); return; }
+      for (const it of c.items) { if (!it.cant) { toast("blue", "Falta cantidad", "Escribe la cantidad de " + it.sub + " (" + c.cat + ")."); return; } }
+    }
+    const tipo = cats.map(c => c.cat).join(", ");
     const detalle = cats.map(c => c.cat + (c.items.length ? " (" + c.items.map(itemLabel).join(", ") + ")" : "") + (c.obs ? " — " + c.obs : "")).join(" | ");
-    const doc = (el("outDoc") && el("outDoc").value || "").trim();
+    const doc = (el("outDoc") && el("outDoc").value || "").trim().toUpperCase();
     await Store.update(outTargetId, { estado: "cerrado", t_salida: new Date().toISOString(), salida_tipo: tipo, salida_detalle: detalle, salida_doc: doc, salida_categorias: cats });
     const id = outTargetId; closeOut(); await refresh();
     const v = data.find(x => x.id === id); toast("green", "✅ Fin de cargue", (v ? v.placa : "Vehículo") + " cerrado (" + tipo + ").");
@@ -489,10 +497,11 @@ const App = (function () {
     const out = [];
     data.filter(r => r.estado !== "rechazado" && inRange(r)).forEach(r => {
       const t = tiempos(r);
+      const U = v => (typeof v === "string" ? v.toUpperCase() : v);
       const mk = (categoria, detalle, obs) => [
-        r.folio || "", r.placa, r.nombre, r.cedula, r.tipo || "", estadoLabel(r.estado),
-        fmtFull(D(r.t_puerta)), fmtFull(D(r.t_ingreso)), fmtFull(D(r.t_salida)),
-        t.espera ?? "", t.planta ?? "", t.ciclo ?? "", categoria, detalle, obs, r.salida_doc || ""
+        U(r.folio || ""), U(r.placa), U(r.nombre), U(r.cedula), U(r.tipo || ""), U(estadoLabel(r.estado)),
+        U(fmtFull(D(r.t_puerta))), U(fmtFull(D(r.t_ingreso))), U(fmtFull(D(r.t_salida))),
+        t.espera ?? "", t.planta ?? "", t.ciclo ?? "", U(categoria), U(detalle), U(obs), U(r.salida_doc || "")
       ];
       const cats = catsOf(r);
       if (cats.length) cats.forEach(c => out.push(mk(c.cat, (c.items || []).map(itemLabel).join(", "), c.obs || "")));
@@ -505,7 +514,7 @@ const App = (function () {
   function exportCSV() {
     const rows = rowsForExport(); if (!rows.length) return toast("blue", "Sin datos", "No hay registros para exportar.");
     const q = s => `"${String(s == null ? "" : s).replace(/"/g, '""')}"`;
-    const csv = "﻿" + [EXP_HEAD.join(","), ...rows.map(r => r.map(q).join(","))].join("\n");
+    const csv = "﻿" + [EXP_HEAD.map(h => h.toUpperCase()).join(","), ...rows.map(r => r.map(q).join(","))].join("\n");
     download(new Blob([csv], { type: "text/csv;charset=utf-8;" }), `ControlPuerta_${stamp()}.csv`);
     toast("green", "CSV exportado", rows.length + " filas.");
   }
@@ -575,7 +584,7 @@ const App = (function () {
     const HR = 9;
     EXP_HEAD.forEach((h, i) => {
       const c = ws.getCell(HR, i + 2);
-      c.value = h; c.font = { size: 9, bold: true, color: { argb: SLATE } };
+      c.value = h.toUpperCase(); c.font = { size: 9, bold: true, color: { argb: SLATE } };
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADFILL } };
       c.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
       c.border = { bottom: bd(BLUE), top: bd(LINE) };
@@ -664,7 +673,7 @@ const App = (function () {
   }
   function closeUser() { el("userOverlay").classList.remove("show"); editUserId = null; }
   async function saveUser() {
-    const nombre = el("uNombre").value.trim(), cargo = el("uCargo").value.trim(), pin = el("uPin").value.trim(), activo = el("uActivo").checked;
+    const nombre = el("uNombre").value.trim().toUpperCase(), cargo = el("uCargo").value.trim().toUpperCase(), pin = el("uPin").value.trim(), activo = el("uActivo").checked;
     const rol = el("uRol") ? el("uRol").value : "porteria";
     const err = m => { const e = el("uErr"); e.textContent = m; e.hidden = false; };
     if (!nombre) return err("Escribe el nombre.");
