@@ -1,0 +1,17 @@
+{
+  "name": "ControlPuerta · Registro de vehículos",
+  "short_name": "ControlPuerta",
+  "description": "Registro digital de vehículos en planta: conductor y portería en tiempo real.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060f2a",
+  "theme_color": "#0b2f7a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

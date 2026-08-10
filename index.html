@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b2f7a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>ControlPuerta · Registro de vehículos</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="toasts" id="toasts"></div>
+
+<!-- ============ ENCABEZADO ============ -->
+<header class="appbar" id="appbar" hidden>
+  <div class="ab-brand">
+    <div class="ab-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="9.2" stroke="#fff" stroke-width="1.6" opacity=".3"/><circle cx="12" cy="12" r="5.6" stroke="#fff" stroke-width="1.7" opacity=".7"/><path d="M12 12 L20 7.4" stroke="#57e0c8" stroke-width="1.8"/><circle cx="12" cy="12" r="1.5" fill="#57e0c8"/><circle cx="18.4" cy="6.6" r="1.7" fill="#fff"/></svg>
+    </div>
+    <div>
+      <b>ControlPuerta</b>
+      <small id="roleLabel">—</small>
+    </div>
+  </div>
+  <div class="ab-right">
+    <span class="conn" id="connBadge" title="Estado de conexión"></span>
+    <button class="ab-exit" id="btnExit" title="Salir">Salir</button>
+  </div>
+</header>
+
+<!-- ============ PANTALLA DE ENTRADA (FACHADA) ============ -->
+<section id="gate" class="gate">
+  <div class="aurora"><span></span><span></span><span></span></div>
+  <div class="grid-bg"></div>
+  <div class="gate-inner">
+    <div class="gate-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="9.2" stroke="#fff" stroke-width="1.5" opacity=".3"/><circle cx="12" cy="12" r="5.6" stroke="#fff" stroke-width="1.6" opacity=".7"/><path d="M12 12 L20 7.4" stroke="#57e0c8" stroke-width="1.8"/><circle cx="12" cy="12" r="1.5" fill="#57e0c8"/><circle cx="18.4" cy="6.6" r="1.7" fill="#fff"/></svg>
+    </div>
+    <div class="gate-kick">SISTEMA DE ACCESO A PLANTA</div>
+    <h1 class="gate-title">Control<span>Puerta</span></h1>
+    <p class="gate-sub">Registro digital de vehículos en tiempo real</p>
+
+    <div class="role-cards">
+      <button class="role-card" onclick="App.enterRole('conductor')">
+        <div class="rc-ic ic-cond">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="15" height="10" rx="2"/><path d="M16 10h4l3 3v4h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
+        </div>
+        <div class="rc-txt"><b>Conductor</b><span>Aviso mi llegada y sigo mi estado</span></div>
+        <div class="rc-arrow">→</div>
+      </button>
+
+      <button class="role-card" onclick="App.askPin('fabrica')">
+        <div class="rc-ic ic-fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20V9l5 3V9l5 3V6l6 4v10"/></svg>
+        </div>
+        <div class="rc-txt"><b>Portería / Fábrica</b><span>Autorizo, cierro y veo el tablero</span></div>
+        <div class="rc-lock">🔒</div>
+      </button>
+
+      <button class="role-card admin" onclick="App.askPin('admin')">
+        <div class="rc-ic ic-adm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"/><circle cx="12" cy="11" r="2.5"/><path d="M12 13.5V16"/></svg>
+        </div>
+        <div class="rc-txt"><b>Administrador</b><span>Gestiono usuarios y accesos</span></div>
+        <div class="rc-lock">👑</div>
+      </button>
+    </div>
+
+    <button id="btnInstall" class="btn-install" hidden onclick="App.installApp()">📲 Instalar app en el celular</button>
+    <p class="gate-foot" id="gateMode">—</p>
+  </div>
+</section>
+
+<!-- ============ VISTA CONDUCTOR ============ -->
+<main id="viewConductor" class="view" hidden></main>
+
+<!-- ============ VISTA FÁBRICA ============ -->
+<main id="viewFabrica" class="view" hidden>
+  <nav class="ftabs" id="ftabs">
+    <button class="ftab on" data-t="puerta" onclick="App.setTab('puerta',this)">En puerta <span class="cnt" id="tabPuerta">0</span></button>
+    <button class="ftab" data-t="planta" onclick="App.setTab('planta',this)">En planta <span class="cnt" id="tabPlanta">0</span></button>
+    <button class="ftab" data-t="cerrado" onclick="App.setTab('cerrado',this)">Cerrados <span class="cnt" id="tabCerrado">0</span></button>
+  </nav>
+  <div id="fabBody" class="fab-body"></div>
+</main>
+
+<!-- ============ VISTA ADMINISTRADOR ============ -->
+<main id="viewAdmin" class="view" hidden>
+  <div id="adminBody" class="admin-body"></div>
+</main>
+
+<!-- ============ MODAL INSTALAR EN IPHONE ============ -->
+<div class="overlay" id="iosOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="ic blue">📲</div>
+      <div><h3>Instalar en iPhone</h3><small>Con Safari, en 3 pasos</small></div>
+    </div>
+    <div class="modal-body">
+      <div class="ios-steps">
+        <div class="ios-step"><span class="n">1</span>
+          <div>Toca el botón <b>Compartir</b>
+            <svg class="shareic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/></svg>
+            (abajo, al centro de Safari).</div></div>
+        <div class="ios-step"><span class="n">2</span>
+          <div>Desliza y elige <b>“Agregar a pantalla de inicio”</b>
+            <svg class="plusic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg></div></div>
+        <div class="ios-step"><span class="n">3</span>
+          <div>Toca <b>“Agregar”</b> arriba a la derecha. ¡Listo, queda el ícono!</div></div>
+      </div>
+      <p class="ios-note">⚠️ Debe ser <b>Safari</b>. Si abriste el enlace dentro de WhatsApp, Instagram o el correo, primero toca <b>“Abrir en Safari”</b>.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-primary" onclick="App.closeIos()">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL PIN ============ -->
+<div class="overlay" id="pinOverlay">
+  <div class="modal sm">
+    <div class="modal-head"><div class="ic blue" id="pinIcon">🔒</div><div><h3 id="pinTitle">Acceso</h3><small id="pinSubt">Ingresa tu PIN</small></div></div>
+    <div class="modal-body">
+      <input id="pinInput" class="pin-input" inputmode="numeric" maxlength="10" placeholder="••••" autocomplete="off">
+      <p class="pin-err" id="pinErr" hidden>PIN incorrecto</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-cancel" onclick="App.closePin()">Cancelar</button>
+      <button class="btn-lg btn-primary" onclick="App.checkPin()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL SALIDA ============ -->
+<div class="overlay" id="outOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="ic green">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      </div>
+      <div><h3>Registrar fin de cargue</h3><small id="outSub">Cierre del cargue</small></div>
+    </div>
+    <div class="modal-body" id="outBody"><!-- categorías dinámicas --></div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-cancel" onclick="App.closeOut()">Cancelar</button>
+      <button class="btn-lg btn-green" onclick="App.confirmOut()">✔ Confirmar fin de cargue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL USUARIO (admin) ============ -->
+<div class="overlay" id="userOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="ic blue">👤</div>
+      <div><h3 id="userTitle">Nuevo usuario</h3><small>Portería / Fábrica</small></div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Nombre</label><input id="uNombre" placeholder="Ej: María Ríos" autocomplete="off"></div>
+      <div class="field"><label>Cargo <small>(opcional)</small></label><input id="uCargo" placeholder="Ej: Portería turno mañana" autocomplete="off"></div>
+      <div class="field"><label>PIN de acceso</label><input id="uPin" inputmode="numeric" maxlength="10" placeholder="Ej: 4521" autocomplete="off"></div>
+      <div class="field"><label>Tipo de acceso (rol)</label>
+        <select id="uRol">
+          <option value="porteria">Portería / Fábrica</option>
+          <option value="admin">👑 Administrador (premium)</option>
+        </select></div>
+      <label class="switch"><input type="checkbox" id="uActivo" checked><span>Usuario activo</span></label>
+      <p class="pin-err" id="uErr" hidden></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-cancel" onclick="App.closeUser()">Cancelar</button>
+      <button class="btn-lg btn-primary" onclick="App.saveUser()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="logo-b64.js"></script>
+<script src="supabase.js"></script>
+<script src="store.js"></script>
+<script src="app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  }
+</script>
+</body>
+</html>
