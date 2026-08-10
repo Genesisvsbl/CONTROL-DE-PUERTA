@@ -6,7 +6,7 @@ const App = (function () {
   const C = window.CONFIG;
   const PLANTA = C.PLANTA;
   // Categorías con las que puede salir un vehículo (varias a la vez, cada una con observación)
-  const VIDRIO_SUBS = ["Ambar 250", "Ambar 330", "Ambar 1.000", "Flim 250", "Flim 330", "Flim 1.000", "Trophic 330", "GREEN 175", "GREEN 320"];
+  const VIDRIO_SUBS = ["Ambar 250", "Ambar 330", "Ambar 1.000", "Flint 250", "Flint 330", "Flint 1.000", "Trophic 330", "GREEN 175", "GREEN 320"];
   const CATS = [
     { key: "producto_terminado", nombre: "Producto terminado", subs: ["PT PET 330", "PT PET 200", "PT PET 1.500", "PT PET 1.000"] },
     { key: "lavado", nombre: "Lavado", subs: VIDRIO_SUBS },

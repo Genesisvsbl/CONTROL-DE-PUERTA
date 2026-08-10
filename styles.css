@@ -352,3 +352,9 @@ input,select,textarea,button{font-family:inherit}
 .modal{max-height:92vh;display:flex;flex-direction:column}
 .modal-head,.modal-foot{flex:none}
 .modal-body{flex:1 1 auto;overflow-y:auto;min-height:0}
+
+/* ===== Botón y aviso de actualización ===== */
+.ab-refresh{border:1px solid var(--linea);background:#fff;color:var(--azul);font-size:17px;font-weight:700;width:34px;height:34px;border-radius:9px;cursor:pointer;line-height:1;transition:transform .3s}
+.ab-refresh:active{transform:rotate(180deg)}
+.update-bar{position:sticky;top:0;z-index:40;background:linear-gradient(135deg,var(--azul),var(--azul-osc));color:#fff;padding:10px 14px;text-align:center;font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 4px 14px rgba(16,38,76,.18)}
+.update-bar button{border:none;background:#fff;color:var(--azul);font-weight:800;padding:6px 15px;border-radius:8px;cursor:pointer;font-size:13px}

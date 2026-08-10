@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="updateBar" class="update-bar" hidden>🔄 Hay una versión nueva <button onclick="cpForceUpdate()">Actualizar</button></div>
 <div class="toasts" id="toasts"></div>
 
 <!-- ============ ENCABEZADO ============ -->
@@ -28,6 +29,7 @@
   </div>
   <div class="ab-right">
     <span class="conn" id="connBadge" title="Estado de conexión"></span>
+    <button class="ab-refresh" id="btnRefresh" title="Actualizar app" onclick="cpForceUpdate()">↻</button>
     <button class="ab-exit" id="btnExit" title="Salir">Salir</button>
   </div>
 </header>
@@ -184,8 +186,29 @@
 <script src="store.js"></script>
 <script src="app.js"></script>
 <script>
+  function cpForceUpdate(){
+    (async () => {
+      try {
+        if ("serviceWorker" in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.update().catch(()=>{}))); }
+        if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
+      } catch (e) {}
+      location.reload();
+    })();
+  }
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").then(reg => {
+        setInterval(() => reg.update().catch(()=>{}), 60000);
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing; if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              const b = document.getElementById("updateBar"); if (b) b.hidden = false;
+            }
+          });
+        });
+      }).catch(()=>{});
+    });
   }
 </script>
 </body>
