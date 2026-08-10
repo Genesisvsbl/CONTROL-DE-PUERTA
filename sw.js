@@ -1,7 +1,7 @@
-/* ControlPuerta · Service Worker (instalar + usar offline el "cascarón") */
-const CACHE = "controlpuerta-v5";
+/* ControlPuerta · Service Worker (v6 — "red primero" para no quedar pegado en versiones viejas) */
+const CACHE = "controlpuerta-v6";
 const SHELL = [
-  "./", "./index.html", "./styles.css", "./config.js",
+  "./", "./index.html", "./styles.css", "./config.js", "./logo-b64.js",
   "./supabase.js", "./store.js", "./app.js",
   "./manifest.webmanifest", "./icon.svg", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"
 ];
@@ -17,28 +17,17 @@ self.addEventListener("activate", e => {
   );
 });
 
+/* RED PRIMERO: siempre intenta traer lo último del servidor y actualiza el caché.
+   Solo si no hay red usa la copia guardada (para que funcione offline). */
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return; // Supabase / CDN van directo a la red
-
-  // Navegación (abrir la app): primero red; si falla, usa el index del caché
-  if (req.mode === "navigate") {
-    e.respondWith(
-      fetch(req).catch(() => caches.match("./index.html").then(r => r || caches.match("./")))
-    );
-    return;
-  }
-
-  // Recursos propios: caché primero, luego red (y guarda copia). Nunca responde vacío.
+  if (url.origin !== self.location.origin) return; // Supabase / CDNs van directo a la red
   e.respondWith(
-    caches.match(req).then(cached => {
-      if (cached) return cached;
-      return fetch(req).then(res => {
-        if (res && res.status === 200) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
-        return res;
-      });
-    })
+    fetch(req).then(res => {
+      if (res && res.status === 200) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+      return res;
+    }).catch(() => caches.match(req).then(r => r || (req.mode === "navigate" ? caches.match("./index.html") : undefined)))
   );
 });
