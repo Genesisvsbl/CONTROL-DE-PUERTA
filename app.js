@@ -699,14 +699,10 @@ const App = (function () {
   async function toggleUser(id) { const u = usuarios.find(x => x.id === id); if (!u) return; await Users.update(id, { activo: !(u.activo !== false) }); await refreshUsers(); }
   async function deleteUser(id) { const u = usuarios.find(x => x.id === id); if (!u) return; if (!confirm("¿Eliminar a " + u.nombre + "?")) return; await Users.remove(id); await refreshUsers(); toast("amber", "Usuario eliminado", u.nombre); }
 
-  /* ===================== INVENTARIO (modo escáner por patrón de estiba) =====================
-     Cada estiba se arma con un patrón: ANCHO × FONDO × ALTO = cajas por estiba.
-     Patrones base (editables):
-        250 / 330 / 320  → 3 × 3 × 5 = 45 cajas
-        1.000            → 3 × 3 × 4 = 36 cajas
-        175              → 3 × 3 × 6 = 54 cajas
-     Total por envase = (estibas completas × cajas por estiba) + cajas sueltas.
-  */
+  /* ===================== INVENTARIO · Existencias + Movimientos (entradas/salidas) =====================
+     El PATRÓN por estiba (ancho×fondo×alto) define cuántas cajas arma una estiba completa (editable).
+     El STOCK de cada envase = ENTRADAS − SALIDAS (pestaña Movimientos).
+     El escáner suma ENTRADAS; también puedes registrar SALIDAS.  */
   const INV_ENVASES = VIDRIO_SUBS.slice(); // canastas de vidrio por tipo de lavado
   const INV_PATRON_DEF = { "250": { a: 3, f: 3, h: 5 }, "330": { a: 3, f: 3, h: 5 }, "320": { a: 3, f: 3, h: 5 }, "1.000": { a: 3, f: 3, h: 4 }, "175": { a: 3, f: 3, h: 6 } };
   function invSizeOf(sub) { const m = String(sub).match(/1\.000|250|330|320|175/); return m ? m[0] : "330"; }
@@ -721,21 +717,49 @@ const App = (function () {
     return out;
   }
   function invSaveTricaje(t) { localStorage.setItem("cp_tricaje", JSON.stringify(t)); }
-  function invGetCounts() { try { return JSON.parse(localStorage.getItem("cp_inv") || "{}") || {}; } catch (e) { return {}; } }
-  function invSaveCounts(c) { localStorage.setItem("cp_inv", JSON.stringify(c)); }
 
+  /* ---- Movimientos (entradas / salidas) ---- */
+  function movUuid() { try { if (Store.uuid) return Store.uuid(); } catch (e) {} return "m" + Date.now() + Math.floor(Math.random() * 1e6); }
+  function movGet() { try { const a = JSON.parse(localStorage.getItem("cp_mov") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function movSave(a) { localStorage.setItem("cp_mov", JSON.stringify(a)); }
+  function movAdd(m) {
+    const a = movGet();
+    a.push({ id: movUuid(), ts: new Date().toISOString(), tipo: m.tipo === "salida" ? "salida" : "entrada", sub: m.sub, cajas: Math.max(0, Math.floor(+m.cajas || 0)), nota: (m.nota || "").toUpperCase(), origen: m.origen || "manual" });
+    movSave(a); return a;
+  }
+  function movRemove(id) { movSave(movGet().filter(x => x.id !== id)); }
+  function movTotals() {
+    const t = {}; INV_ENVASES.forEach(s => t[s] = { ent: 0, sal: 0 });
+    movGet().forEach(m => { if (!t[m.sub]) t[m.sub] = { ent: 0, sal: 0 }; if (m.tipo === "salida") t[m.sub].sal += +m.cajas || 0; else t[m.sub].ent += +m.cajas || 0; });
+    return t;
+  }
+
+  let invTab = "existencias"; // 'existencias' | 'movimientos'
+  let movFilter = "todo";
+  function setInvTab(t) { invTab = t; renderInventario(el("adminContent")); }
   function renderInventario(box) {
-    const tri = invGetTricaje(), cnt = invGetCounts();
-    // Agrupar por marca (Ambar / Flint / Trophic / GREEN) conservando el orden
+    box.innerHTML = `
+      <div class="inv">
+        <div class="inv-head">
+          <div><h3>Inventario</h3><small>Existencias por patrón de estiba · entradas y salidas</small></div>
+          <div class="exp-btns"><button class="btn-exp scan" onclick="App.openScan()">📷 Escáner</button></div>
+        </div>
+        <div class="inv-subtabs">
+          <button class="istab ${invTab === 'existencias' ? 'on' : ''}" onclick="App.setInvTab('existencias')">📦 Existencias</button>
+          <button class="istab ${invTab === 'movimientos' ? 'on' : ''}" onclick="App.setInvTab('movimientos')">🔄 Movimientos</button>
+        </div>
+        <div id="invSub"></div>
+      </div>`;
+    if (invTab === "movimientos") renderMovimientos(el("invSub"));
+    else renderExistencias(el("invSub"));
+  }
+  function renderExistencias(box) {
+    const tri = invGetTricaje(), tt = movTotals();
     const groups = [];
-    INV_ENVASES.forEach(sub => {
-      const marca = sub.split(" ")[0];
-      let g = groups.find(x => x.marca === marca); if (!g) { g = { marca, subs: [] }; groups.push(g); }
-      g.subs.push(sub);
-    });
+    INV_ENVASES.forEach(sub => { const marca = sub.split(" ")[0]; let g = groups.find(x => x.marca === marca); if (!g) { g = { marca, subs: [] }; groups.push(g); } g.subs.push(sub); });
+    let grand = 0;
     const rowHTML = sub => {
-      const t = tri[sub], tot = t.a * t.f * t.h;
-      const c = cnt[sub] || {}, est = +c.est || 0, su = +c.su || 0, s2 = esc(sub);
+      const t = tri[sub], per = t.a * t.f * t.h, x = tt[sub] || { ent: 0, sal: 0 }, st = x.ent - x.sal, s2 = esc(sub); grand += st;
       return `<tr data-sub="${s2}">
         <td class="inv-name">${s2}</td>
         <td><input class="inv-i pat" type="number" min="1" step="1" value="${t.a}" data-k="a" oninput="App.invRecalc()"></td>
@@ -743,93 +767,117 @@ const App = (function () {
         <td><input class="inv-i pat" type="number" min="1" step="1" value="${t.f}" data-k="f" oninput="App.invRecalc()"></td>
         <td class="inv-x">×</td>
         <td><input class="inv-i pat" type="number" min="1" step="1" value="${t.h}" data-k="h" oninput="App.invRecalc()"></td>
-        <td class="inv-tot"><b>${tot}</b></td>
-        <td><input class="inv-i cnt" type="number" min="0" step="1" value="${est || ''}" placeholder="0" data-k="est" oninput="App.invRecalc()"></td>
-        <td><input class="inv-i cnt" type="number" min="0" step="1" value="${su || ''}" placeholder="0" data-k="su" oninput="App.invRecalc()"></td>
-        <td class="inv-sub"><b>${est * tot + su}</b></td>
+        <td class="inv-tot"><b>${per}</b></td>
+        <td class="inv-ent">${x.ent.toLocaleString("es-CO")}</td>
+        <td class="inv-sal">${x.sal.toLocaleString("es-CO")}</td>
+        <td class="inv-sub"><b>${st.toLocaleString("es-CO")}</b></td>
       </tr>`;
     };
-    const groupBlocks = groups.map(g => `
-      <tr class="inv-grp"><td colspan="10">${esc(g.marca)}</td></tr>
-      ${g.subs.map(rowHTML).join("")}`).join("");
+    const blocks = groups.map(g => `<tr class="inv-grp"><td colspan="10">${esc(g.marca)}</td></tr>${g.subs.map(rowHTML).join("")}`).join("");
     box.innerHTML = `
-      <div class="inv">
-        <div class="inv-head">
-          <div><h3>Inventario por patrón de estiba</h3><small>Escanea/cuenta por estibas completas + cajas sueltas. Los tricajes (ancho × fondo × alto) son editables.</small></div>
-          <div class="exp-btns"><button class="btn-exp scan" onclick="App.openScan()">📷 Escáner</button><button class="btn-exp" onclick="App.invExport()">⬇️ CSV</button><button class="btn-exp danger" onclick="App.invReset()">↺ Reiniciar conteo</button></div>
-        </div>
-        <button class="scan-cta" onclick="App.openScan()">
-          <span class="sc-ic">📷</span>
-          <span class="sc-tx"><b>Escanear estiba con la cámara</b><small>Toma la foto, ajusta el patrón y suma las cajas solo</small></span>
-          <span class="sc-go">›</span>
-        </button>
-        <div class="inv-grand"><span>📦 Total general de cajas</span><b id="invGrand">0</b></div>
-        <div class="inv-wrap"><table class="inv-tbl" id="invTable">
-          <thead><tr>
-            <th class="l">Tipo de lavado</th>
-            <th>Ancho</th><th></th><th>Fondo</th><th></th><th>Alto</th>
-            <th class="hl">× estiba</th>
-            <th>Estibas</th><th>Sueltas</th>
-            <th class="hl">Total</th>
-          </tr></thead>
-          <tbody>${groupBlocks}</tbody>
-        </table></div>
-        <p class="inv-note">💡 <b>× estiba</b> = ancho × fondo × alto (cajas que arma una estiba completa). <b>Total</b> = estibas × (× estiba) + sueltas. Todo se guarda en este equipo.</p>
-      </div>`;
-    invRecalc();
+      <button class="scan-cta" onclick="App.openScan()"><span class="sc-ic">📷</span><span class="sc-tx"><b>Escanear estiba con la cámara</b><small>Cuenta y suma como ENTRADA al inventario</small></span><span class="sc-go">›</span></button>
+      <div class="inv-grand"><span>📦 Stock total (entradas − salidas)</span><b id="invGrand">${grand.toLocaleString("es-CO")}</b></div>
+      <div class="inv-wrap"><table class="inv-tbl" id="invTable">
+        <thead><tr>
+          <th class="l">Tipo de lavado</th><th>Ancho</th><th></th><th>Fondo</th><th></th><th>Alto</th>
+          <th class="hl">× estiba</th><th>Entradas</th><th>Salidas</th><th class="hl">Stock</th>
+        </tr></thead>
+        <tbody>${blocks}</tbody>
+      </table></div>
+      <div class="exp-btns" style="margin-top:12px"><button class="btn-exp" onclick="App.invExport()">⬇️ Exportar existencias</button></div>
+      <p class="inv-note">💡 El <b>Stock</b> = Entradas − Salidas (ver pestaña 🔄 Movimientos). El <b>× estiba</b> = ancho × fondo × alto y es editable; el escáner lo usa para contar.</p>`;
   }
   function invRecalc() {
-    const tri = {}, cnt = {}; let grand = 0;
+    const tri = {};
     document.querySelectorAll("#invTable tr[data-sub]").forEach(tr => {
       const sub = tr.getAttribute("data-sub");
       const gv = k => { const i = tr.querySelector('.inv-i[data-k="' + k + '"]'); return i ? i.value : ""; };
       const a = Math.max(1, Math.floor(+gv("a") || 1)), f = Math.max(1, Math.floor(+gv("f") || 1)), h = Math.max(1, Math.floor(+gv("h") || 1));
-      const est = Math.max(0, Math.floor(+gv("est") || 0)), su = Math.max(0, Math.floor(+gv("su") || 0));
-      const tot = a * f * h, subT = est * tot + su;
-      tri[sub] = { a, f, h }; cnt[sub] = { est, su };
-      const tb = tr.querySelector(".inv-tot b"); if (tb) tb.textContent = tot;
-      const sb = tr.querySelector(".inv-sub b"); if (sb) sb.textContent = subT.toLocaleString("es-CO");
-      grand += subT;
+      tri[sub] = { a, f, h };
+      const tb = tr.querySelector(".inv-tot b"); if (tb) tb.textContent = a * f * h;
     });
-    const gt = el("invGrand"); if (gt) gt.textContent = grand.toLocaleString("es-CO");
-    invSaveTricaje(tri); invSaveCounts(cnt);
-  }
-  function invReset() {
-    if (!confirm("¿Reiniciar el conteo (estibas y sueltas) a cero? Los tricajes se conservan.")) return;
-    invSaveCounts({});
-    renderInventario(el("adminContent"));
-    toast("amber", "Conteo reiniciado", "Estibas y sueltas en cero.");
+    invSaveTricaje(tri);
   }
   function invExport() {
-    const tri = invGetTricaje(), cnt = invGetCounts();
-    const head = ["TIPO DE LAVADO", "ANCHO", "FONDO", "ALTO", "CAJAS X ESTIBA", "ESTIBAS", "SUELTAS", "TOTAL CAJAS"];
-    const rows = []; let grand = 0;
-    INV_ENVASES.forEach(sub => {
-      const t = tri[sub], tot = t.a * t.f * t.h, c = cnt[sub] || {}, est = +c.est || 0, su = +c.su || 0, subT = est * tot + su;
-      grand += subT;
-      rows.push([sub.toUpperCase(), t.a, t.f, t.h, tot, est, su, subT]);
-    });
-    rows.push(["TOTAL GENERAL", "", "", "", "", "", "", grand]);
+    const tri = invGetTricaje(), tt = movTotals();
+    const head = ["TIPO DE LAVADO", "ANCHO", "FONDO", "ALTO", "CAJAS X ESTIBA", "ENTRADAS", "SALIDAS", "STOCK"];
+    const rows = []; let ge = 0, gs = 0, gk = 0;
+    INV_ENVASES.forEach(sub => { const t = tri[sub], per = t.a * t.f * t.h, x = tt[sub] || { ent: 0, sal: 0 }, st = x.ent - x.sal; ge += x.ent; gs += x.sal; gk += st; rows.push([sub.toUpperCase(), t.a, t.f, t.h, per, x.ent, x.sal, st]); });
+    rows.push(["TOTAL", "", "", "", "", ge, gs, gk]);
     const q = s => `"${String(s == null ? "" : s).replace(/"/g, '""')}"`;
     const csv = "﻿" + [head.join(","), ...rows.map(r => r.map(q).join(","))].join("\n");
-    download(new Blob([csv], { type: "text/csv;charset=utf-8;" }), `ControlPuerta_Inventario_${stamp()}.csv`);
-    toast("green", "Inventario exportado", grand.toLocaleString("es-CO") + " cajas en total.");
+    download(new Blob([csv], { type: "text/csv;charset=utf-8;" }), `ControlPuerta_Existencias_${stamp()}.csv`);
+    toast("green", "Existencias exportadas", gk.toLocaleString("es-CO") + " cajas en stock.");
+  }
+  function setMovFilter(f) { movFilter = f; renderMovimientos(el("invSub")); }
+  function renderMovimientos(box) {
+    const all = movGet().slice().sort((a, b) => (a.ts < b.ts ? 1 : -1));
+    const list = all.filter(m => movFilter === "todo" ? true : m.tipo === movFilter);
+    const opts = INV_ENVASES.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+    const chips = [["todo", "Todo"], ["entrada", "Entradas"], ["salida", "Salidas"]].map(([k, l]) => `<button class="chip ${movFilter === k ? 'on' : ''}" onclick="App.setMovFilter('${k}')">${l}</button>`).join("");
+    const totEnt = all.filter(m => m.tipo !== "salida").reduce((s, m) => s + (+m.cajas || 0), 0);
+    const totSal = all.filter(m => m.tipo === "salida").reduce((s, m) => s + (+m.cajas || 0), 0);
+    const rowsHTML = list.length ? list.map(m => `
+      <div class="mv-row ${m.tipo}">
+        <div class="mv-ic">${m.tipo === "salida" ? "➖" : "➕"}</div>
+        <div class="mv-main"><b>${esc(m.sub)}</b><small>${esc(fmtFull(D(m.ts)))}${m.origen === "escaner" ? " · 📷 escáner" : ""}${m.nota ? " · " + esc(m.nota) : ""}</small></div>
+        <div class="mv-q ${m.tipo}">${m.tipo === "salida" ? "−" : "+"}${(+m.cajas).toLocaleString("es-CO")}</div>
+        <button class="mv-del" title="Eliminar" onclick="App.movDel('${m.id}')">🗑</button>
+      </div>`).join("") : `<div class="empty small"><p>Sin movimientos todavía.<br>Usa el 📷 escáner (entradas) o registra uno aquí.</p></div>`;
+    box.innerHTML = `
+      <div class="mv-kpis">
+        <div class="mvk ent"><span>Entradas</span><b>${totEnt.toLocaleString("es-CO")}</b></div>
+        <div class="mvk sal"><span>Salidas</span><b>${totSal.toLocaleString("es-CO")}</b></div>
+        <div class="mvk stk"><span>Stock</span><b>${(totEnt - totSal).toLocaleString("es-CO")}</b></div>
+      </div>
+      <div class="mv-form">
+        <select id="mvTipo"><option value="entrada">➕ Entrada</option><option value="salida">➖ Salida</option></select>
+        <select id="mvSub">${opts}</select>
+        <input id="mvCajas" type="number" min="1" inputmode="numeric" placeholder="Cajas">
+        <input id="mvNota" placeholder="Nota / remisión (opcional)" style="text-transform:uppercase">
+        <button class="btn-add" onclick="App.movAddManual()">Guardar</button>
+      </div>
+      <div class="mv-bar"><div class="indic-filter">${chips}</div><button class="btn-exp" onclick="App.movExport()">⬇️ CSV</button></div>
+      <div class="mv-list">${rowsHTML}</div>`;
+  }
+  function movAddManual() {
+    const tipo = el("mvTipo").value, sub = el("mvSub").value, cajas = Math.floor(+el("mvCajas").value || 0), nota = (el("mvNota").value || "").trim().toUpperCase();
+    if (cajas <= 0) { toast("blue", "Falta la cantidad", "Escribe cuántas cajas."); return; }
+    movAdd({ tipo, sub, cajas, nota, origen: "manual" });
+    toast(tipo === "salida" ? "amber" : "green", tipo === "salida" ? "Salida registrada" : "Entrada registrada", (tipo === "salida" ? "−" : "+") + cajas + " " + sub + ".");
+    renderMovimientos(el("invSub"));
+  }
+  function movDel(id) {
+    const m = movGet().find(x => x.id === id); if (!m) return;
+    if (!confirm("¿Eliminar este movimiento? (" + (m.tipo === "salida" ? "−" : "+") + m.cajas + " " + m.sub + ")")) return;
+    movRemove(id); renderMovimientos(el("invSub")); toast("amber", "Movimiento eliminado", "");
+  }
+  function movExport() {
+    const all = movGet().slice().sort((a, b) => (a.ts < b.ts ? 1 : -1));
+    if (!all.length) return toast("blue", "Sin datos", "No hay movimientos.");
+    const head = ["FECHA", "TIPO", "TIPO DE LAVADO", "CAJAS", "ORIGEN", "NOTA"];
+    const q = s => `"${String(s == null ? "" : s).replace(/"/g, '""')}"`;
+    const rows = all.map(m => [fmtFull(D(m.ts)), m.tipo.toUpperCase(), m.sub.toUpperCase(), (m.tipo === "salida" ? "-" : "") + m.cajas, (m.origen || "").toUpperCase(), (m.nota || "").toUpperCase()]);
+    const csv = "﻿" + [head.join(","), ...rows.map(r => r.map(q).join(","))].join("\n");
+    download(new Blob([csv], { type: "text/csv;charset=utf-8;" }), `ControlPuerta_Movimientos_${stamp()}.csv`);
+    toast("green", "Movimientos exportados", all.length + " registros.");
   }
 
   /* ===================== ESCÁNER DE ESTIBAS (cámara + patrón) =====================
      Flujo: elige el tipo de lavado → toma la foto → aparece una grilla del patrón
      sobre la foto → ajusta Ancho/Fondo/Alto y descuenta Huecos/Malas con +/− →
      "Sumar al inventario" agrega las cajas contadas al total de ese envase.  */
-  const scan = { sub: INV_ENVASES[0], est: 1, a: 3, f: 3, h: 5, extra: 0, gap: 0, bad: 0, img: null, log: [] };
+  const scan = { sub: INV_ENVASES[0], mtipo: "entrada", est: 1, a: 3, f: 3, h: 5, extra: 0, gap: 0, bad: 0, img: null, log: [] };
   function scanPer() { return scan.a * scan.f * scan.h; }              // cajas por estiba completa (patrón)
   function scanNet() { return Math.max(0, scan.est * scanPer() + scan.extra - scan.gap - scan.bad); }
   function openScan() {
     const tri = invGetTricaje(), t = tri[scan.sub] || { a: 3, f: 3, h: 5 };
     scan.est = 1; scan.a = t.a; scan.f = t.f; scan.h = t.h; scan.extra = 0; scan.gap = 0; scan.bad = 0; scan.img = null;
     renderScan();
-    el("scanOverlay").classList.add("show");
+    el("scanOverlay").classList.add("show", "scan-full");
   }
-  function closeScan() { el("scanOverlay").classList.remove("show"); }
+  function closeScan() { el("scanOverlay").classList.remove("show", "scan-full"); }
+  function scanSetTipo(v) { scan.mtipo = v === "salida" ? "salida" : "entrada"; renderScan(); }
   function scanPickSub(v) {
     scan.sub = v;
     const tri = invGetTricaje(), t = tri[v] || { a: 3, f: 3, h: 5 };
@@ -843,49 +891,57 @@ const App = (function () {
   function renderScan() {
     const opts = INV_ENVASES.map(s => `<option value="${esc(s)}"${s === scan.sub ? " selected" : ""}>${esc(s)}</option>`).join("");
     el("scanBody").innerHTML = `
-      <div class="field"><label>Tipo de lavado a contar</label>
-        <select id="scSub" onchange="App.scanPickSub(this.value)">${opts}</select></div>
-      <label class="scan-photo" id="scPhoto">
-        <input type="file" accept="image/*" capture="environment" hidden onchange="App.scanPhoto(this)">
-        <div class="sp-inner" id="spInner">
-          <div class="sp-ic">📸</div>
-          <b>Tomar foto de las estibas</b>
-          <small>Encuadra el frente completo · detecta y cuenta solo</small>
-        </div>
-      </label>
-      <button type="button" class="scan-detect" id="scDetectBtn" onclick="App.scanDetect()" hidden>🔍 Volver a escanear la foto</button>
-      <div class="scan-steps">
-        <div class="stp-lead">Estibas detectadas en la foto</div>
-        <div class="stp-grid one">
-          ${stepper("Estibas", "est", "pilas en la foto", true)}
-        </div>
-        <div class="stp-lead">Patrón por estiba (editable)</div>
-        <div class="stp-grid">
-          ${stepper("Ancho", "a", "a lo ancho")}
-          ${stepper("Fondo", "f", "de fondo")}
-          ${stepper("Alto", "h", "de alto")}
-        </div>
-        <div class="stp-lead">Estiba mocha / cajas sueltas <small>(pilas incompletas)</small></div>
-        <div class="mocha">
-          <div class="mocha-in">
-            <button type="button" class="stp" onclick="App.scanExtraAdd(-1)">−</button>
-            <input id="sc-extra" type="number" min="0" inputmode="numeric" value="${scan.extra || ''}" placeholder="0" oninput="App.scanExtra(this)">
-            <button type="button" class="stp" onclick="App.scanExtraAdd(1)">+</button>
+     <div class="scan-2col">
+      <div class="sc-left">
+        <label class="scan-photo" id="scPhoto">
+          <input type="file" accept="image/*" capture="environment" hidden onchange="App.scanPhoto(this)">
+          <div class="sp-inner" id="spInner">
+            <div class="sp-ic">📸</div>
+            <b>Tomar foto de las estibas</b>
+            <small>Encuadra el frente completo · detecta y cuenta solo</small>
           </div>
-          <button type="button" class="mocha-hil" onclick="App.scanExtraHilera()">+1 hilera <small>(+<span id="scHil">${scan.a * scan.f}</span>)</small></button>
-        </div>
-        <div class="stp-lead">Descuentos</div>
-        <div class="stp-grid two">
-          ${stepper("Huecos", "gap", "espacios vacíos")}
-          ${stepper("Malas", "bad", "cajas dañadas")}
-        </div>
+        </label>
+        <button type="button" class="scan-detect" id="scDetectBtn" onclick="App.scanDetect()" hidden>🔍 Volver a escanear la foto</button>
       </div>
-      <div class="scan-res">
-        <span>Cajas contadas en la foto</span>
-        <b id="scNet">${scanNet()}</b>
-        <small id="scFormula"></small>
+      <div class="sc-right">
+        <div class="mtipo-tog">
+          <button type="button" class="mt ent ${scan.mtipo === 'entrada' ? 'on' : ''}" onclick="App.scanSetTipo('entrada')">➕ Entrada</button>
+          <button type="button" class="mt sal ${scan.mtipo === 'salida' ? 'on' : ''}" onclick="App.scanSetTipo('salida')">➖ Salida</button>
+        </div>
+        <div class="field"><label>Tipo de lavado a contar</label>
+          <select id="scSub" onchange="App.scanPickSub(this.value)">${opts}</select></div>
+        <div class="scan-steps">
+          <div class="stp-lead">Estibas detectadas en la foto</div>
+          <div class="stp-grid one">${stepper("Estibas", "est", "pilas en la foto", true)}</div>
+          <div class="stp-lead">Patrón por estiba (editable)</div>
+          <div class="stp-grid">
+            ${stepper("Ancho", "a", "a lo ancho")}
+            ${stepper("Fondo", "f", "de fondo")}
+            ${stepper("Alto", "h", "de alto")}
+          </div>
+          <div class="stp-lead">Estiba mocha / cajas sueltas <small>(pilas incompletas)</small></div>
+          <div class="mocha">
+            <div class="mocha-in">
+              <button type="button" class="stp" onclick="App.scanExtraAdd(-1)">−</button>
+              <input id="sc-extra" type="number" min="0" inputmode="numeric" value="${scan.extra || ''}" placeholder="0" oninput="App.scanExtra(this)">
+              <button type="button" class="stp" onclick="App.scanExtraAdd(1)">+</button>
+            </div>
+            <button type="button" class="mocha-hil" onclick="App.scanExtraHilera()">+1 hilera <small>(+<span id="scHil">${scan.a * scan.f}</span>)</small></button>
+          </div>
+          <div class="stp-lead">Descuentos</div>
+          <div class="stp-grid two">
+            ${stepper("Huecos", "gap", "espacios vacíos")}
+            ${stepper("Malas", "bad", "cajas dañadas")}
+          </div>
+        </div>
+        <div class="scan-res ${scan.mtipo}">
+          <span id="scResLbl">Cajas contadas en la foto</span>
+          <b id="scNet">${scanNet()}</b>
+          <small id="scFormula"></small>
+        </div>
+        <div id="scLog" class="scan-log"></div>
       </div>
-      <div id="scLog" class="scan-log"></div>`;
+     </div>`;
     scanRefresh();
   }
   function scanUpdateNet() {
@@ -905,11 +961,14 @@ const App = (function () {
     ["est", "a", "f", "h", "gap", "bad"].forEach(k => { const e = el("sv-" + k); if (e) e.textContent = scan[k]; });
     const hil = el("scHil"); if (hil) hil.textContent = scan.a * scan.f;
     scanUpdateNet();
+    const sal = scan.mtipo === "salida";
+    const ab = el("scanAdd"); if (ab) { ab.innerHTML = sal ? "➖ Registrar salida" : "➕ Sumar entrada"; ab.className = "btn-lg " + (sal ? "btn-salida" : "btn-green"); }
+    const rl = el("scResLbl"); if (rl) rl.textContent = sal ? "Cajas que SALEN en la foto" : "Cajas que ENTRAN en la foto";
     const db = el("scDetectBtn"); if (db) db.hidden = !scan.img;
     drawScanGrid();
     const log = el("scLog");
     if (log) log.innerHTML = scan.log.length
-      ? `<div class="sl-title">Escaneos de esta sesión</div>` + scan.log.map(x => `<div class="sl-row"><span>${esc(x.sub)}${x.est > 1 ? ` · ${x.est} estibas` : ""}</span><b>+${x.net}</b></div>`).join("")
+      ? `<div class="sl-title">Movimientos de esta sesión</div>` + scan.log.map(x => `<div class="sl-row ${x.tipo}"><span>${x.tipo === "salida" ? "➖" : "➕"} ${esc(x.sub)}${x.est > 1 ? ` · ${x.est} estibas` : ""}</span><b>${x.tipo === "salida" ? "−" : "+"}${x.net}</b></div>`).join("")
       : "";
   }
   function scanPhoto(input) {
@@ -999,18 +1058,14 @@ const App = (function () {
   }
   function scanAdd() {
     const net = scanNet();
-    if (net <= 0) { toast("blue", "Nada que sumar", "La cuenta da 0. Ajusta el patrón."); return; }
-    const cnt = invGetCounts();
-    const c = cnt[scan.sub] || { est: 0, su: 0 };
-    c.su = (+c.su || 0) + net; // las cajas contadas se suman al total del envase
-    cnt[scan.sub] = c; invSaveCounts(cnt);
-    scan.log.unshift({ sub: scan.sub, net, est: scan.est });
+    if (net <= 0) { toast("blue", "Nada que contar", "La cuenta da 0. Ajusta el patrón."); return; }
+    const sal = scan.mtipo === "salida";
+    movAdd({ tipo: scan.mtipo, sub: scan.sub, cajas: net, nota: scan.est + " estiba(s) escaneadas", origen: "escaner" });
+    scan.log.unshift({ sub: scan.sub, net, est: scan.est, tipo: scan.mtipo });
     scan.img = null; scan.est = 1; scan.extra = 0; scan.gap = 0; scan.bad = 0;
     renderScan();
-    if (adminTab === "inventario" && el("invTable")) {
-      const box = el("adminContent"); if (box) renderInventario(box);
-    }
-    toast("green", "✅ Sumado", "+" + net + " cajas de " + scan.sub + ".");
+    if (adminTab === "inventario") { const box = el("adminContent"); if (box) renderInventario(box); }
+    toast(sal ? "amber" : "green", sal ? "➖ Salida registrada" : "✅ Entrada registrada", (sal ? "−" : "+") + net + " cajas de " + scan.sub + ".");
   }
 
   /* ===================== TOASTS ===================== */
@@ -1028,8 +1083,8 @@ const App = (function () {
     setTab, autorizar, rechazar, openOut, closeOut, confirmOut, exportCSV, exportXLSX,
     openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos,
     setAdminTab, setIndicFilter, addTipo, toggleCat, toggleSub,
-    invRecalc, invReset, invExport,
-    openScan, closeScan, scanPickSub, scanStep, scanPhoto, scanAdd, scanDetect,
+    invRecalc, invExport, setInvTab, setMovFilter, movAddManual, movDel, movExport,
+    openScan, closeScan, scanPickSub, scanStep, scanPhoto, scanAdd, scanDetect, scanSetTipo,
     scanExtra, scanExtraAdd, scanExtraHilera
   };
 })();

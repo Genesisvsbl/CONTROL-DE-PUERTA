@@ -456,3 +456,51 @@ input,select,textarea,button{font-family:inherit}
 .mocha-in input:focus{outline:none}
 .mocha-hil{flex:1;border:1.5px dashed var(--azul);background:#fff;color:var(--azul);border-radius:12px;font-size:13.5px;font-weight:700;cursor:pointer}
 .mocha-hil small{font-weight:600;color:var(--gris)}
+
+/* ===================== INVENTARIO v2: subtabs, existencias, movimientos ===================== */
+.inv-subtabs{display:flex;gap:8px;margin:6px 0 14px}
+.istab{flex:1;border:1.5px solid var(--linea);background:#fff;border-radius:11px;padding:9px;font-size:13.5px;font-weight:700;color:var(--gris);cursor:pointer}
+.istab.on{border-color:var(--azul);background:#eef4ff;color:var(--azul-osc)}
+.inv-ent{color:#0c9a52;font-weight:700;background:#f2fbf5}
+.inv-sal{color:#b42318;font-weight:700;background:#fef4f2}
+/* Movimientos */
+.mv-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.mvk{border:1.5px solid var(--linea);border-radius:12px;padding:10px;text-align:center}
+.mvk span{display:block;font-size:11px;color:var(--gris);font-weight:600}
+.mvk b{font-size:22px;font-weight:800}
+.mvk.ent b{color:#0c9a52}.mvk.sal b{color:#b42318}.mvk.stk b{color:var(--azul)}
+.mv-form{display:flex;flex-wrap:wrap;gap:8px;background:#f7f9fd;border:1px solid var(--linea);border-radius:12px;padding:10px;margin-bottom:12px}
+.mv-form select,.mv-form input{border:1.5px solid var(--linea);border-radius:9px;padding:9px 10px;font-size:13.5px;background:#fff}
+.mv-form #mvTipo{flex:none;width:118px;font-weight:700}
+.mv-form #mvSub{flex:1;min-width:120px}
+.mv-form #mvCajas{width:90px}
+.mv-form #mvNota{flex:1;min-width:140px}
+.mv-form .btn-add{flex:none}
+.mv-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.mv-list{display:flex;flex-direction:column;gap:6px}
+.mv-row{display:flex;align-items:center;gap:10px;border:1px solid var(--linea);border-left-width:4px;border-radius:10px;padding:9px 11px}
+.mv-row.entrada{border-left-color:#12a150}.mv-row.salida{border-left-color:#e5484d}
+.mv-ic{font-size:15px;flex:none}
+.mv-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.mv-main b{font-size:13.5px}
+.mv-main small{font-size:11px;color:var(--gris)}
+.mv-q{font-size:16px;font-weight:800;flex:none}
+.mv-q.entrada{color:#0c9a52}.mv-q.salida{color:#b42318}
+.mv-del{flex:none;border:none;background:transparent;cursor:pointer;font-size:15px;opacity:.6}
+.mv-del:hover{opacity:1}
+
+/* ===================== ESCÁNER a pantalla completa (2 columnas) ===================== */
+.overlay.scan-full{padding:0}
+.scan-full .modal{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0;display:flex;flex-direction:column}
+.scan-2col{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:860px){.scan-2col{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:26px;align-items:start}
+  .scan-full .modal{max-width:1200px;margin:0 auto;height:100vh}
+  .sc-left{position:sticky;top:0}
+  .sp-photo img{max-height:70vh}}
+.mtipo-tog{display:flex;gap:8px;margin-bottom:12px}
+.mtipo-tog .mt{flex:1;border:1.5px solid var(--linea);background:#fff;border-radius:12px;padding:11px;font-size:14px;font-weight:800;color:var(--gris);cursor:pointer}
+.mtipo-tog .mt.ent.on{border-color:#12a150;background:#eafaf0;color:#0c7a41}
+.mtipo-tog .mt.sal.on{border-color:#e5484d;background:#fdeeee;color:#b42318}
+.scan-res.salida{background:linear-gradient(135deg,#e5484d,#b42318);box-shadow:0 8px 20px rgba(180,35,24,.22)}
+.btn-salida{background:linear-gradient(135deg,#e5484d,#c0362f);color:#fff}
+.sl-row.salida b{color:#b42318}
