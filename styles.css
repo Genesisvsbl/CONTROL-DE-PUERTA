@@ -371,3 +371,31 @@ input,select,textarea,button{font-family:inherit}
 /* ===== Texto en mayúscula al escribir ===== */
 #fNombre,#fMotivo,.catobs,#outDoc,#uNombre,#uCargo{text-transform:uppercase}
 #fNombre::placeholder,#fMotivo::placeholder,.catobs::placeholder,#outDoc::placeholder,#uNombre::placeholder,#uCargo::placeholder{text-transform:none}
+
+/* ===================== INVENTARIO (patrón de estiba) ===================== */
+.inv{padding:2px 0}
+.inv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.inv-head h3{margin:0;font-size:16px;color:var(--texto)}
+.inv-head small{color:var(--gris);font-size:12px}
+.inv-grand{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,var(--azul),var(--azul-osc));color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 8px 20px rgba(16,38,76,.18)}
+.inv-grand span{font-size:13.5px;font-weight:600;opacity:.95}
+.inv-grand b{font-size:28px;font-weight:800;letter-spacing:.5px}
+.inv-wrap{overflow-x:auto;border:1px solid var(--linea);border-radius:12px}
+.inv-tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+.inv-tbl thead th{background:#eaf1ff;color:#334155;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:9px 6px;text-align:center;border-bottom:2px solid var(--azul);white-space:nowrap}
+.inv-tbl thead th.l{text-align:left;padding-left:12px}
+.inv-tbl thead th.hl{background:#dfeaff;color:var(--azul-osc)}
+.inv-grp td{background:#f3f6fc;color:var(--azul-osc);font-weight:800;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:7px 12px;border-bottom:1px solid var(--linea)}
+.inv-tbl tbody td{padding:6px;text-align:center;border-bottom:1px solid #eef2f8}
+.inv-name{text-align:left!important;padding-left:12px!important;font-weight:600;color:var(--texto);white-space:nowrap}
+.inv-x{color:var(--gris);font-weight:700;padding:0!important;width:10px}
+.inv-i{width:52px;border:1.5px solid var(--linea);border-radius:8px;padding:7px 4px;font-size:13px;font-weight:600;text-align:center}
+.inv-i:focus{outline:none;border-color:var(--azul);box-shadow:0 0 0 3px rgba(21,82,214,.13)}
+.inv-i.pat{background:#fbfcff;color:#334155;width:46px}
+.inv-i.cnt{border-color:#c9d7f2;width:58px}
+.inv-tot{background:#f6f9ff}
+.inv-tot b{color:var(--azul);font-weight:700}
+.inv-sub{background:#f2fbf5}
+.inv-sub b{color:var(--verde);font-weight:800;font-size:14px}
+.btn-exp.danger{color:#b42318;border-color:#f3c4bd}
+.inv-note{font-size:11.5px;color:var(--gris);margin-top:10px;line-height:1.5}

@@ -623,10 +623,12 @@ const App = (function () {
         <div class="admin-tabs">
           <button class="atab ${adminTab === 'usuarios' ? 'on' : ''}" onclick="App.setAdminTab('usuarios')">👥 Usuarios</button>
           <button class="atab ${adminTab === 'indicadores' ? 'on' : ''}" onclick="App.setAdminTab('indicadores')">📊 Indicadores</button>
+          <button class="atab ${adminTab === 'inventario' ? 'on' : ''}" onclick="App.setAdminTab('inventario')">📦 Inventario</button>
         </div>
         <div id="adminContent"></div>
       </div>`;
     if (adminTab === "indicadores") renderIndicadores(el("adminContent"));
+    else if (adminTab === "inventario") renderInventario(el("adminContent"));
     else renderAdminUsuarios(el("adminContent"));
   }
   function setAdminTab(t) { adminTab = t; renderAdmin(); }
@@ -696,6 +698,118 @@ const App = (function () {
   async function toggleUser(id) { const u = usuarios.find(x => x.id === id); if (!u) return; await Users.update(id, { activo: !(u.activo !== false) }); await refreshUsers(); }
   async function deleteUser(id) { const u = usuarios.find(x => x.id === id); if (!u) return; if (!confirm("¿Eliminar a " + u.nombre + "?")) return; await Users.remove(id); await refreshUsers(); toast("amber", "Usuario eliminado", u.nombre); }
 
+  /* ===================== INVENTARIO (modo escáner por patrón de estiba) =====================
+     Cada estiba se arma con un patrón: ANCHO × FONDO × ALTO = cajas por estiba.
+     Patrones base (editables):
+        250 / 330 / 320  → 3 × 3 × 5 = 45 cajas
+        1.000            → 3 × 3 × 4 = 36 cajas
+        175              → 3 × 3 × 6 = 54 cajas
+     Total por envase = (estibas completas × cajas por estiba) + cajas sueltas.
+  */
+  const INV_ENVASES = VIDRIO_SUBS.slice(); // canastas de vidrio por tipo de lavado
+  const INV_PATRON_DEF = { "250": { a: 3, f: 3, h: 5 }, "330": { a: 3, f: 3, h: 5 }, "320": { a: 3, f: 3, h: 5 }, "1.000": { a: 3, f: 3, h: 4 }, "175": { a: 3, f: 3, h: 6 } };
+  function invSizeOf(sub) { const m = String(sub).match(/1\.000|250|330|320|175/); return m ? m[0] : "330"; }
+  function invGetTricaje() {
+    let saved = {}; try { saved = JSON.parse(localStorage.getItem("cp_tricaje") || "{}") || {}; } catch (e) {}
+    const out = {};
+    INV_ENVASES.forEach(sub => {
+      const def = INV_PATRON_DEF[invSizeOf(sub)] || { a: 3, f: 3, h: 5 };
+      const s = saved[sub] || {};
+      out[sub] = { a: +s.a || def.a, f: +s.f || def.f, h: +s.h || def.h };
+    });
+    return out;
+  }
+  function invSaveTricaje(t) { localStorage.setItem("cp_tricaje", JSON.stringify(t)); }
+  function invGetCounts() { try { return JSON.parse(localStorage.getItem("cp_inv") || "{}") || {}; } catch (e) { return {}; } }
+  function invSaveCounts(c) { localStorage.setItem("cp_inv", JSON.stringify(c)); }
+
+  function renderInventario(box) {
+    const tri = invGetTricaje(), cnt = invGetCounts();
+    // Agrupar por marca (Ambar / Flint / Trophic / GREEN) conservando el orden
+    const groups = [];
+    INV_ENVASES.forEach(sub => {
+      const marca = sub.split(" ")[0];
+      let g = groups.find(x => x.marca === marca); if (!g) { g = { marca, subs: [] }; groups.push(g); }
+      g.subs.push(sub);
+    });
+    const rowHTML = sub => {
+      const t = tri[sub], tot = t.a * t.f * t.h;
+      const c = cnt[sub] || {}, est = +c.est || 0, su = +c.su || 0, s2 = esc(sub);
+      return `<tr data-sub="${s2}">
+        <td class="inv-name">${s2}</td>
+        <td><input class="inv-i pat" type="number" min="1" step="1" value="${t.a}" data-k="a" oninput="App.invRecalc()"></td>
+        <td class="inv-x">×</td>
+        <td><input class="inv-i pat" type="number" min="1" step="1" value="${t.f}" data-k="f" oninput="App.invRecalc()"></td>
+        <td class="inv-x">×</td>
+        <td><input class="inv-i pat" type="number" min="1" step="1" value="${t.h}" data-k="h" oninput="App.invRecalc()"></td>
+        <td class="inv-tot"><b>${tot}</b></td>
+        <td><input class="inv-i cnt" type="number" min="0" step="1" value="${est || ''}" placeholder="0" data-k="est" oninput="App.invRecalc()"></td>
+        <td><input class="inv-i cnt" type="number" min="0" step="1" value="${su || ''}" placeholder="0" data-k="su" oninput="App.invRecalc()"></td>
+        <td class="inv-sub"><b>${est * tot + su}</b></td>
+      </tr>`;
+    };
+    const groupBlocks = groups.map(g => `
+      <tr class="inv-grp"><td colspan="10">${esc(g.marca)}</td></tr>
+      ${g.subs.map(rowHTML).join("")}`).join("");
+    box.innerHTML = `
+      <div class="inv">
+        <div class="inv-head">
+          <div><h3>Inventario por patrón de estiba</h3><small>Escanea/cuenta por estibas completas + cajas sueltas. Los tricajes (ancho × fondo × alto) son editables.</small></div>
+          <div class="exp-btns"><button class="btn-exp" onclick="App.invExport()">⬇️ CSV</button><button class="btn-exp danger" onclick="App.invReset()">↺ Reiniciar conteo</button></div>
+        </div>
+        <div class="inv-grand"><span>📦 Total general de cajas</span><b id="invGrand">0</b></div>
+        <div class="inv-wrap"><table class="inv-tbl" id="invTable">
+          <thead><tr>
+            <th class="l">Tipo de lavado</th>
+            <th>Ancho</th><th></th><th>Fondo</th><th></th><th>Alto</th>
+            <th class="hl">× estiba</th>
+            <th>Estibas</th><th>Sueltas</th>
+            <th class="hl">Total</th>
+          </tr></thead>
+          <tbody>${groupBlocks}</tbody>
+        </table></div>
+        <p class="inv-note">💡 <b>× estiba</b> = ancho × fondo × alto (cajas que arma una estiba completa). <b>Total</b> = estibas × (× estiba) + sueltas. Todo se guarda en este equipo.</p>
+      </div>`;
+    invRecalc();
+  }
+  function invRecalc() {
+    const tri = {}, cnt = {}; let grand = 0;
+    document.querySelectorAll("#invTable tr[data-sub]").forEach(tr => {
+      const sub = tr.getAttribute("data-sub");
+      const gv = k => { const i = tr.querySelector('.inv-i[data-k="' + k + '"]'); return i ? i.value : ""; };
+      const a = Math.max(1, Math.floor(+gv("a") || 1)), f = Math.max(1, Math.floor(+gv("f") || 1)), h = Math.max(1, Math.floor(+gv("h") || 1));
+      const est = Math.max(0, Math.floor(+gv("est") || 0)), su = Math.max(0, Math.floor(+gv("su") || 0));
+      const tot = a * f * h, subT = est * tot + su;
+      tri[sub] = { a, f, h }; cnt[sub] = { est, su };
+      const tb = tr.querySelector(".inv-tot b"); if (tb) tb.textContent = tot;
+      const sb = tr.querySelector(".inv-sub b"); if (sb) sb.textContent = subT.toLocaleString("es-CO");
+      grand += subT;
+    });
+    const gt = el("invGrand"); if (gt) gt.textContent = grand.toLocaleString("es-CO");
+    invSaveTricaje(tri); invSaveCounts(cnt);
+  }
+  function invReset() {
+    if (!confirm("¿Reiniciar el conteo (estibas y sueltas) a cero? Los tricajes se conservan.")) return;
+    invSaveCounts({});
+    renderInventario(el("adminContent"));
+    toast("amber", "Conteo reiniciado", "Estibas y sueltas en cero.");
+  }
+  function invExport() {
+    const tri = invGetTricaje(), cnt = invGetCounts();
+    const head = ["TIPO DE LAVADO", "ANCHO", "FONDO", "ALTO", "CAJAS X ESTIBA", "ESTIBAS", "SUELTAS", "TOTAL CAJAS"];
+    const rows = []; let grand = 0;
+    INV_ENVASES.forEach(sub => {
+      const t = tri[sub], tot = t.a * t.f * t.h, c = cnt[sub] || {}, est = +c.est || 0, su = +c.su || 0, subT = est * tot + su;
+      grand += subT;
+      rows.push([sub.toUpperCase(), t.a, t.f, t.h, tot, est, su, subT]);
+    });
+    rows.push(["TOTAL GENERAL", "", "", "", "", "", "", grand]);
+    const q = s => `"${String(s == null ? "" : s).replace(/"/g, '""')}"`;
+    const csv = "﻿" + [head.join(","), ...rows.map(r => r.map(q).join(","))].join("\n");
+    download(new Blob([csv], { type: "text/csv;charset=utf-8;" }), `ControlPuerta_Inventario_${stamp()}.csv`);
+    toast("green", "Inventario exportado", grand.toLocaleString("es-CO") + " cajas en total.");
+  }
+
   /* ===================== TOASTS ===================== */
   function toast(type, title, msg) {
     const t = document.createElement("div");
@@ -710,7 +824,8 @@ const App = (function () {
     markArrival, submitConductor, newConductor,
     setTab, autorizar, rechazar, openOut, closeOut, confirmOut, exportCSV, exportXLSX,
     openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos,
-    setAdminTab, setIndicFilter, addTipo, toggleCat, toggleSub
+    setAdminTab, setIndicFilter, addTipo, toggleCat, toggleSub,
+    invRecalc, invReset, invExport
   };
 })();
 
