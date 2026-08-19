@@ -448,3 +448,11 @@ input,select,textarea,button{font-family:inherit}
 .sp-laser{position:absolute;left:0;right:0;height:3px;top:0;background:linear-gradient(90deg,transparent,#39d98a,#39d98a,transparent);box-shadow:0 0 14px 3px rgba(57,217,138,.85);animation:spScan 1.4s ease-in-out infinite}
 .sp-analyzing{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(11,47,122,.9);color:#eafff3;font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:20px;letter-spacing:.3px}
 @keyframes spScan{0%{top:0}50%{top:calc(100% - 3px)}100%{top:0}}
+
+/* ===== Escáner: estiba mocha / cajas sueltas ===== */
+.mocha{display:flex;gap:8px;align-items:stretch;margin-bottom:4px}
+.mocha-in{display:flex;align-items:center;gap:6px;border:1.5px solid #c9d7f2;border-radius:12px;padding:6px 8px;background:#f4f8ff}
+.mocha-in input{width:62px;border:none;background:transparent;font-size:19px;font-weight:800;text-align:center;color:var(--texto)}
+.mocha-in input:focus{outline:none}
+.mocha-hil{flex:1;border:1.5px dashed var(--azul);background:#fff;color:var(--azul);border-radius:12px;font-size:13.5px;font-weight:700;cursor:pointer}
+.mocha-hil small{font-weight:600;color:var(--gris)}

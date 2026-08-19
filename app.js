@@ -820,12 +820,12 @@ const App = (function () {
      Flujo: elige el tipo de lavado → toma la foto → aparece una grilla del patrón
      sobre la foto → ajusta Ancho/Fondo/Alto y descuenta Huecos/Malas con +/− →
      "Sumar al inventario" agrega las cajas contadas al total de ese envase.  */
-  const scan = { sub: INV_ENVASES[0], est: 1, a: 3, f: 3, h: 5, gap: 0, bad: 0, img: null, log: [] };
-  function scanPer() { return scan.a * scan.f * scan.h; }              // cajas por estiba (patrón)
-  function scanNet() { return Math.max(0, scan.est * scanPer() - scan.gap - scan.bad); }
+  const scan = { sub: INV_ENVASES[0], est: 1, a: 3, f: 3, h: 5, extra: 0, gap: 0, bad: 0, img: null, log: [] };
+  function scanPer() { return scan.a * scan.f * scan.h; }              // cajas por estiba completa (patrón)
+  function scanNet() { return Math.max(0, scan.est * scanPer() + scan.extra - scan.gap - scan.bad); }
   function openScan() {
     const tri = invGetTricaje(), t = tri[scan.sub] || { a: 3, f: 3, h: 5 };
-    scan.est = 1; scan.a = t.a; scan.f = t.f; scan.h = t.h; scan.gap = 0; scan.bad = 0; scan.img = null;
+    scan.est = 1; scan.a = t.a; scan.f = t.f; scan.h = t.h; scan.extra = 0; scan.gap = 0; scan.bad = 0; scan.img = null;
     renderScan();
     el("scanOverlay").classList.add("show");
   }
@@ -833,7 +833,7 @@ const App = (function () {
   function scanPickSub(v) {
     scan.sub = v;
     const tri = invGetTricaje(), t = tri[v] || { a: 3, f: 3, h: 5 };
-    scan.est = 1; scan.a = t.a; scan.f = t.f; scan.h = t.h; scan.gap = 0; scan.bad = 0; scanRefresh();
+    scan.est = 1; scan.a = t.a; scan.f = t.f; scan.h = t.h; scan.extra = 0; scan.gap = 0; scan.bad = 0; scanRefresh();
   }
   const stepBtn = (t, d) => `<button type="button" class="stp" onclick="App.scanStep('${t}',${d})">${d > 0 ? '+' : '−'}</button>`;
   function stepper(label, key, hint, hl) {
@@ -865,6 +865,15 @@ const App = (function () {
           ${stepper("Fondo", "f", "de fondo")}
           ${stepper("Alto", "h", "de alto")}
         </div>
+        <div class="stp-lead">Estiba mocha / cajas sueltas <small>(pilas incompletas)</small></div>
+        <div class="mocha">
+          <div class="mocha-in">
+            <button type="button" class="stp" onclick="App.scanExtraAdd(-1)">−</button>
+            <input id="sc-extra" type="number" min="0" inputmode="numeric" value="${scan.extra || ''}" placeholder="0" oninput="App.scanExtra(this)">
+            <button type="button" class="stp" onclick="App.scanExtraAdd(1)">+</button>
+          </div>
+          <button type="button" class="mocha-hil" onclick="App.scanExtraHilera()">+1 hilera <small>(+<span id="scHil">${scan.a * scan.f}</span>)</small></button>
+        </div>
         <div class="stp-lead">Descuentos</div>
         <div class="stp-grid two">
           ${stepper("Huecos", "gap", "espacios vacíos")}
@@ -879,6 +888,14 @@ const App = (function () {
       <div id="scLog" class="scan-log"></div>`;
     scanRefresh();
   }
+  function scanUpdateNet() {
+    const net = scanNet(), nb = el("scNet"); if (nb) nb.textContent = net.toLocaleString("es-CO");
+    const per = scanPer(), ff = el("scFormula");
+    if (ff) ff.textContent = `${scan.est} estiba(s) × ${per}${scan.extra ? ` + ${scan.extra} mocha/sueltas` : ""}${(scan.gap || scan.bad) ? ` − ${scan.gap + scan.bad}` : ""} = ${net}`;
+  }
+  function scanExtra(input) { scan.extra = clamp(Math.floor(+input.value || 0), 0, 99999); scanUpdateNet(); }
+  function scanExtraAdd(d) { scan.extra = clamp(scan.extra + d, 0, 99999); const i = el("sc-extra"); if (i) i.value = scan.extra || ""; scanUpdateNet(); }
+  function scanExtraHilera() { scanExtraAdd(scan.a * scan.f); }
   function scanStep(t, d) {
     const lim = { est: [1, 999], a: [1, 40], f: [1, 40], h: [1, 40], gap: [0, 9999], bad: [0, 9999] }[t] || [0, 9999];
     scan[t] = clamp((scan[t] || 0) + d, lim[0], lim[1]);
@@ -886,10 +903,8 @@ const App = (function () {
   }
   function scanRefresh() {
     ["est", "a", "f", "h", "gap", "bad"].forEach(k => { const e = el("sv-" + k); if (e) e.textContent = scan[k]; });
-    const net = scanNet(), nb = el("scNet"); if (nb) nb.textContent = net.toLocaleString("es-CO");
-    const per = scanPer();
-    const ff = el("scFormula");
-    if (ff) ff.textContent = `${scan.est} estiba(s) × ${per} (${scan.a}×${scan.f}×${scan.h})${(scan.gap || scan.bad) ? ` − ${scan.gap + scan.bad}` : ""} = ${net}`;
+    const hil = el("scHil"); if (hil) hil.textContent = scan.a * scan.f;
+    scanUpdateNet();
     const db = el("scDetectBtn"); if (db) db.hidden = !scan.img;
     drawScanGrid();
     const log = el("scLog");
@@ -936,24 +951,26 @@ const App = (function () {
     let bl = minL; for (let L = minL; L <= maxL; L++) if (sc[L] === smax) { bl = L; break; }
     return { L: bl, score: smax };
   }
-  function scanDetectGrid(img) {
+  // Analiza SOLO cuántas estibas (pilas) hay a lo ancho. El patrón (alto/ancho/fondo)
+  // no se toca: lo define el tipo de lavado. Se mira la banda central-baja (las canastas),
+  // evitando el edificio/cielo de arriba y el piso de abajo.
+  function scanDetectEstibas(img) {
     const N = 360, cv = document.createElement("canvas"); cv.width = N; cv.height = N;
     const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0, N, N);
     const d = cx.getImageData(0, 0, N, N).data, g = new Float32Array(N * N);
     for (let i = 0, p = 0; i < N * N; i++, p += 4) g[i] = d[p] * .299 + d[p + 1] * .587 + d[p + 2] * .114;
-    const col = new Float32Array(N), row = new Float32Array(N);
-    for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
-      col[x] += Math.abs(g[y * N + x + 1] - g[y * N + x - 1]);
-      row[y] += Math.abs(g[(y + 1) * N + x] - g[(y - 1) * N + x]);
+    const y0 = Math.floor(N * 0.42), y1 = Math.floor(N * 0.93);   // franja de las canastas
+    const x0 = Math.floor(N * 0.03), x1 = Math.floor(N * 0.97), W = x1 - x0;
+    // Perfil de bordes VERTICALES por columna (marca los bordes entre canastas y entre estibas)
+    const col = new Float32Array(W);
+    for (let y = y0 + 1; y < y1 - 1; y++) for (let x = x0 + 1; x < x1 - 1; x++) {
+      col[x - x0] += Math.abs(g[y * N + x + 1] - g[y * N + x - 1]);
     }
-    const cs = scanSmooth(col, 2), rs = scanSmooth(row, 2);
-    const a = scanPeriod(cs, Math.floor(N / 30), Math.floor(N / 2.2));
-    const b = scanPeriod(rs, Math.floor(N / 30), Math.floor(N / 2.2));
-    return {
-      cols: a ? clamp(Math.round(N / a.L), 1, 60) : null,
-      rows: b ? clamp(Math.round(N / b.L), 1, 40) : null,
-      conf: Math.min(a ? a.score : 0, b ? b.score : 0)
-    };
+    const cs = scanSmooth(col, 3);
+    // Periodo FINO = una canasta (columna). Rango amplio para no confundir con el edificio.
+    const a = scanPeriod(cs, Math.floor(W / 22), Math.floor(W / 2.2));
+    const colsCanastas = a ? clamp(Math.round(W / a.L), 1, 60) : null;
+    return { cols: colsCanastas, conf: a ? a.score : 0 };
   }
   function scanDetect() {
     if (!scan.img) { toast("blue", "Primero toma la foto", "Toca “Tomar foto de las estibas”."); return; }
@@ -965,14 +982,17 @@ const App = (function () {
     }
     const img = new Image();
     img.onload = () => setTimeout(() => {
-      let res = null; try { res = scanDetectGrid(img); } catch (e) {}
+      let res = null; try { res = scanDetectEstibas(img); } catch (e) {}
       const o = document.querySelector(".sp-scan"); if (o) o.remove();
-      if (res && (res.cols || res.rows) && res.conf >= 0.1) {
-        if (res.rows) scan.h = res.rows;
-        if (res.cols) scan.est = Math.max(1, Math.round(res.cols / Math.max(1, scan.a)));
+      if (res && res.cols && res.conf >= 0.12) {
+        // estibas = columnas de canastas detectadas ÷ ancho del patrón
+        scan.est = clamp(Math.round(res.cols / Math.max(1, scan.a)), 1, 30);
         scanRefresh();
-        toast("green", "📷 Escaneo listo", "≈ " + scan.est + " estiba(s) · patrón " + scan.a + "×" + scan.f + "×" + scan.h + " (" + Math.round(res.conf * 100) + "%). Verifica.");
-      } else { scanRefresh(); toast("blue", "Patrón poco claro", "Ajusta las estibas y el patrón con + / −."); }
+        toast("green", "📷 Escaneo listo", "Detecté ≈ " + scan.est + " estiba(s) (" + Math.round(res.conf * 100) + "%). Cada una son " + scanPer() + ". Verifica el número.");
+      } else {
+        scanRefresh();
+        toast("amber", "Cuenta las estibas", "No quedó claro. Pon cuántas pilas hay con el botón grande de Estibas.");
+      }
     }, 1400);
     img.onerror = () => { const o = document.querySelector(".sp-scan"); if (o) o.remove(); toast("blue", "No pude leer la foto", "Intenta con otra."); };
     img.src = scan.img;
@@ -985,7 +1005,7 @@ const App = (function () {
     c.su = (+c.su || 0) + net; // las cajas contadas se suman al total del envase
     cnt[scan.sub] = c; invSaveCounts(cnt);
     scan.log.unshift({ sub: scan.sub, net, est: scan.est });
-    scan.img = null; scan.est = 1; scan.gap = 0; scan.bad = 0;
+    scan.img = null; scan.est = 1; scan.extra = 0; scan.gap = 0; scan.bad = 0;
     renderScan();
     if (adminTab === "inventario" && el("invTable")) {
       const box = el("adminContent"); if (box) renderInventario(box);
@@ -1009,7 +1029,8 @@ const App = (function () {
     openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos,
     setAdminTab, setIndicFilter, addTipo, toggleCat, toggleSub,
     invRecalc, invReset, invExport,
-    openScan, closeScan, scanPickSub, scanStep, scanPhoto, scanAdd, scanDetect
+    openScan, closeScan, scanPickSub, scanStep, scanPhoto, scanAdd, scanDetect,
+    scanExtra, scanExtraAdd, scanExtraHilera
   };
 })();
 
