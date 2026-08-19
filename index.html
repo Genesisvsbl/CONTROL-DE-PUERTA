@@ -180,6 +180,21 @@
   </div>
 </div>
 
+<!-- ============ MODAL ESCÁNER DE ESTIBAS (inventario) ============ -->
+<div class="overlay" id="scanOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="ic blue">📷</div>
+      <div><h3>Escáner de estibas</h3><small>Toma la foto, verifica la grilla y cuenta</small></div>
+    </div>
+    <div class="modal-body" id="scanBody"><!-- dinámico --></div>
+    <div class="modal-foot">
+      <button class="btn-lg btn-cancel" onclick="App.closeScan()">Cerrar</button>
+      <button class="btn-lg btn-green" id="scanAdd" onclick="App.scanAdd()">➕ Sumar al inventario</button>
+    </div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="logo-b64.js"></script>
 <script src="supabase.js"></script>

@@ -755,8 +755,13 @@ const App = (function () {
       <div class="inv">
         <div class="inv-head">
           <div><h3>Inventario por patrón de estiba</h3><small>Escanea/cuenta por estibas completas + cajas sueltas. Los tricajes (ancho × fondo × alto) son editables.</small></div>
-          <div class="exp-btns"><button class="btn-exp" onclick="App.invExport()">⬇️ CSV</button><button class="btn-exp danger" onclick="App.invReset()">↺ Reiniciar conteo</button></div>
+          <div class="exp-btns"><button class="btn-exp scan" onclick="App.openScan()">📷 Escáner</button><button class="btn-exp" onclick="App.invExport()">⬇️ CSV</button><button class="btn-exp danger" onclick="App.invReset()">↺ Reiniciar conteo</button></div>
         </div>
+        <button class="scan-cta" onclick="App.openScan()">
+          <span class="sc-ic">📷</span>
+          <span class="sc-tx"><b>Escanear estiba con la cámara</b><small>Toma la foto, ajusta el patrón y suma las cajas solo</small></span>
+          <span class="sc-go">›</span>
+        </button>
         <div class="inv-grand"><span>📦 Total general de cajas</span><b id="invGrand">0</b></div>
         <div class="inv-wrap"><table class="inv-tbl" id="invTable">
           <thead><tr>
@@ -810,6 +815,110 @@ const App = (function () {
     toast("green", "Inventario exportado", grand.toLocaleString("es-CO") + " cajas en total.");
   }
 
+  /* ===================== ESCÁNER DE ESTIBAS (cámara + patrón) =====================
+     Flujo: elige el tipo de lavado → toma la foto → aparece una grilla del patrón
+     sobre la foto → ajusta Ancho/Fondo/Alto y descuenta Huecos/Malas con +/− →
+     "Sumar al inventario" agrega las cajas contadas al total de ese envase.  */
+  const scan = { sub: INV_ENVASES[0], a: 3, f: 3, h: 5, gap: 0, bad: 0, img: null, log: [] };
+  function scanNet() { return Math.max(0, scan.a * scan.f * scan.h - scan.gap - scan.bad); }
+  function openScan() {
+    const tri = invGetTricaje(), t = tri[scan.sub] || { a: 3, f: 3, h: 5 };
+    scan.a = t.a; scan.f = t.f; scan.h = t.h; scan.gap = 0; scan.bad = 0; scan.img = null;
+    renderScan();
+    el("scanOverlay").classList.add("show");
+  }
+  function closeScan() { el("scanOverlay").classList.remove("show"); }
+  function scanPickSub(v) {
+    scan.sub = v;
+    const tri = invGetTricaje(), t = tri[v] || { a: 3, f: 3, h: 5 };
+    scan.a = t.a; scan.f = t.f; scan.h = t.h; scan.gap = 0; scan.bad = 0; scanRefresh();
+  }
+  const stepBtn = (t, d) => `<button type="button" class="stp" onclick="App.scanStep('${t}',${d})">${d > 0 ? '+' : '−'}</button>`;
+  function stepper(label, key, hint) {
+    return `<div class="stp-row"><div class="stp-lab">${label}${hint ? `<small>${hint}</small>` : ""}</div>
+      <div class="stp-ctl">${stepBtn(key, -1)}<span class="stp-val" id="sv-${key}">${scan[key]}</span>${stepBtn(key, 1)}</div></div>`;
+  }
+  function renderScan() {
+    const opts = INV_ENVASES.map(s => `<option value="${esc(s)}"${s === scan.sub ? " selected" : ""}>${esc(s)}</option>`).join("");
+    el("scanBody").innerHTML = `
+      <div class="field"><label>Tipo de lavado a contar</label>
+        <select id="scSub" onchange="App.scanPickSub(this.value)">${opts}</select></div>
+      <label class="scan-photo" id="scPhoto">
+        <input type="file" accept="image/*" capture="environment" hidden onchange="App.scanPhoto(this)">
+        <div class="sp-inner" id="spInner">
+          <div class="sp-ic">📸</div>
+          <b>Tomar foto de la estiba</b>
+          <small>Encuadra la cara frontal (ancho × alto) completa</small>
+        </div>
+      </label>
+      <div class="scan-steps">
+        <div class="stp-grid">
+          ${stepper("Ancho", "a", "cajas a lo ancho")}
+          ${stepper("Fondo", "f", "cajas de fondo")}
+          ${stepper("Alto", "h", "cajas de alto")}
+        </div>
+        <div class="stp-grid two">
+          ${stepper("Huecos", "gap", "espacios vacíos")}
+          ${stepper("Malas", "bad", "cajas dañadas")}
+        </div>
+      </div>
+      <div class="scan-res">
+        <span>Cajas contadas en esta estiba</span>
+        <b id="scNet">${scanNet()}</b>
+        <small id="scFormula"></small>
+      </div>
+      <div id="scLog" class="scan-log"></div>`;
+    scanRefresh();
+  }
+  function scanStep(t, d) {
+    const lim = { a: [1, 40], f: [1, 40], h: [1, 40], gap: [0, 9999], bad: [0, 9999] }[t] || [0, 9999];
+    scan[t] = Math.min(lim[1], Math.max(lim[0], (scan[t] || 0) + d));
+    scanRefresh();
+  }
+  function scanRefresh() {
+    ["a", "f", "h", "gap", "bad"].forEach(k => { const e = el("sv-" + k); if (e) e.textContent = scan[k]; });
+    const net = scanNet(), nb = el("scNet"); if (nb) nb.textContent = net;
+    const ff = el("scFormula"); if (ff) ff.textContent = `${scan.a} × ${scan.f} × ${scan.h} = ${scan.a * scan.f * scan.h}${(scan.gap || scan.bad) ? `  −  ${scan.gap + scan.bad} (huecos/malas)` : ""}`;
+    drawScanGrid();
+    const log = el("scLog");
+    if (log) log.innerHTML = scan.log.length
+      ? `<div class="sl-title">Escaneos de esta sesión</div>` + scan.log.map(x => `<div class="sl-row"><span>${esc(x.sub)}</span><b>+${x.net}</b></div>`).join("")
+      : "";
+  }
+  function scanPhoto(input) {
+    const f = input.files && input.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { scan.img = r.result; drawScanGrid(); };
+    r.readAsDataURL(f);
+  }
+  function drawScanGrid() {
+    const inner = el("spInner"); if (!inner) return;
+    if (!scan.img) return; // deja el placeholder
+    const cols = scan.a, rows = scan.h;
+    let cells = "";
+    for (let i = 0; i < cols * rows; i++) cells += '<div class="gc"></div>';
+    inner.innerHTML = `<div class="sp-photo"><img src="${scan.img}" alt="estiba">
+      <div class="sp-grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${cells}</div>
+      <div class="sp-badge">${cols} × ${rows} cara · fondo ${scan.f}</div></div>`;
+  }
+  function scanAdd() {
+    const net = scanNet();
+    if (net <= 0) { toast("blue", "Nada que sumar", "La cuenta da 0. Ajusta el patrón."); return; }
+    const cnt = invGetCounts();
+    const c = cnt[scan.sub] || { est: 0, su: 0 };
+    c.su = (+c.su || 0) + net; // las cajas contadas se suman como sueltas al total del envase
+    cnt[scan.sub] = c; invSaveCounts(cnt);
+    scan.log.unshift({ sub: scan.sub, net });
+    scan.img = null; scan.gap = 0; scan.bad = 0;
+    renderScan();
+    if (adminTab === "inventario" && el("invTable")) {
+      // refresca la tabla del fondo sin cerrar el escáner
+      const box = el("adminContent"); if (box) renderInventario(box);
+      el("scanOverlay").classList.add("show"); // renderInventario no toca el overlay, pero por si acaso
+    }
+    toast("green", "✅ Sumado", "+" + net + " cajas de " + scan.sub + ".");
+  }
+
   /* ===================== TOASTS ===================== */
   function toast(type, title, msg) {
     const t = document.createElement("div");
@@ -825,7 +934,8 @@ const App = (function () {
     setTab, autorizar, rechazar, openOut, closeOut, confirmOut, exportCSV, exportXLSX,
     openUser, closeUser, saveUser, toggleUser, deleteUser, installApp, closeIos,
     setAdminTab, setIndicFilter, addTipo, toggleCat, toggleSub,
-    invRecalc, invReset, invExport
+    invRecalc, invReset, invExport,
+    openScan, closeScan, scanPickSub, scanStep, scanPhoto, scanAdd
   };
 })();
 
