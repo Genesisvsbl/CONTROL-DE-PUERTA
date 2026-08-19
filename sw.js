@@ -1,5 +1,5 @@
-/* ControlPuerta · Service Worker (v8 — "red primero" para no quedar pegado en versiones viejas) */
-const CACHE = "controlpuerta-v8";
+/* ControlPuerta · Service Worker (v9 — "red primero" para no quedar pegado en versiones viejas) */
+const CACHE = "controlpuerta-v9";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./config.js", "./logo-b64.js",
   "./supabase.js", "./store.js", "./app.js",

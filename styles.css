@@ -436,3 +436,15 @@ input,select,textarea,button{font-family:inherit}
 .sl-title{font-size:11.5px;color:var(--gris);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
 .sl-row{display:flex;justify-content:space-between;align-items:center;padding:7px 11px;border:1px solid var(--linea);border-radius:9px;margin-bottom:5px;font-size:13px}
 .sl-row b{color:var(--verde);font-weight:800}
+
+/* ===== Escáner: auto-detección, separadores de estiba y animación ===== */
+.scan-detect{width:100%;border:1.5px solid var(--azul);background:#fff;color:var(--azul);font-weight:700;font-size:13.5px;border-radius:11px;padding:10px;cursor:pointer;margin:-8px 0 12px}
+.stp-lead{font-size:11px;color:var(--gris);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin:2px 0 2px}
+.stp-grid.one{grid-template-columns:1fr}
+.stp-row.hl{border-color:var(--azul);background:#f4f8ff}
+.stp-row.hl .stp-val{color:var(--azul)}
+.gc.est-sep{border-left:2.5px solid #ffd23f;box-shadow:inset 2px 0 0 rgba(255,120,0,.4)}
+.sp-scan{position:absolute;inset:0;overflow:hidden;background:rgba(11,47,122,.18)}
+.sp-laser{position:absolute;left:0;right:0;height:3px;top:0;background:linear-gradient(90deg,transparent,#39d98a,#39d98a,transparent);box-shadow:0 0 14px 3px rgba(57,217,138,.85);animation:spScan 1.4s ease-in-out infinite}
+.sp-analyzing{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(11,47,122,.9);color:#eafff3;font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:20px;letter-spacing:.3px}
+@keyframes spScan{0%{top:0}50%{top:calc(100% - 3px)}100%{top:0}}
